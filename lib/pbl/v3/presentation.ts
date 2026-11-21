@@ -7,8 +7,22 @@ export const learningWorkbenchFeatures = { executionConsole: false, applicationP
 export const TASK_DRAWER_LINK = '#pbl-task';
 
 export function hasTaskDrawer(view: Pick<LearningView, 'state' | 'stage'>): boolean {
+  return view.state.status !== 'completed';
+}
+
+/** A project peek creates a study, but does not consent to its first teaching turn. */
+export function needsInitialStart(view: LearningView): boolean {
   return (
-    view.state.status !== 'completed' && ['dialogue', 'produce', 'check'].includes(view.stage.kind)
+    view.needsOpening === true &&
+    view.state.position.milestoneIndex === 0 &&
+    view.state.position.stageIndex === 0 &&
+    view.state.status !== 'completed' &&
+    !view.roleRun &&
+    !view.messages.length &&
+    !view.conversation?.length &&
+    !view.conversationHistory?.length &&
+    !view.recovery?.progressReset &&
+    !view.archiveDiscard
   );
 }
 

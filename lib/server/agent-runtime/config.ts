@@ -42,10 +42,13 @@ export const agentRuntimeConfig = {
   },
   /** Directory skills are loaded from. Overridable so a deployment can mount its own set. */
   skillsDir: process.env.OPENMAIC_AGENT_SKILLS_DIR ?? `${process.cwd()}/skills/agent-runtime`,
-  /** Audio/video upload safety ceiling; defaults to the same 500 MiB cap as documents/images. */
-  maxUploadBytes: numberFromEnv(process.env.OPENMAIC_AGENT_MAX_UPLOAD_BYTES, 500 * 1024 * 1024),
+  /** Classroom catalog is independent of the authoring skill directory. */
+  classroomSkillsDir:
+    process.env.OPENMAIC_CLASSROOM_SKILLS_DIR ?? `${process.cwd()}/skills/classroom`,
+  /** Audio/video upload safety ceiling; defaults to the same 50 MiB cap as documents/images. */
+  maxUploadBytes: numberFromEnv(process.env.OPENMAIC_AGENT_MAX_UPLOAD_BYTES, 50 * 1024 * 1024),
   /** Document/image cap, aligned with the course material cap of generation runs. */
-  maxDocumentBytes: numberFromEnv(process.env.MATERIALS_MAX_DOCUMENT_BYTES, 500 * 1024 * 1024),
+  maxDocumentBytes: numberFromEnv(process.env.MATERIALS_MAX_DOCUMENT_BYTES, 50 * 1024 * 1024),
   /** Maximum number of active material records retained by one owner. */
   maxMaterialsPerOwner: numberFromEnv(process.env.MATERIALS_MAX_COUNT_PER_OWNER, 100),
   /** Maximum aggregate bytes across one owner's active material records. */

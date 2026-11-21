@@ -7,6 +7,7 @@ import { useApplicationPreview } from './use-application-preview';
 import { usePblActivityGeneration } from './activity-provider';
 import {
   ArrowUp,
+  ArrowRight,
   ArrowLeft,
   Square,
   MessageSquareText,
@@ -32,6 +33,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useStageStore } from '@/lib/store/stage';
 import type { LearningView } from '@/lib/pbl/v3/types';
+import type { ProjectHeroDetails } from '@/lib/pbl/project-hero';
 import { LearningWorkbenchPanel } from './workbench-panel';
 import type { FileSaveReceipt } from './use-project-editor';
 import { ProjectReport } from './project-report';
@@ -43,17 +45,20 @@ import { TestEvaluation } from './test-evaluation';
 import { TeachingRunNotice } from './teaching-run-notice';
 import { PendingAction } from './pending-action';
 import { TaskDock } from './task-dock';
+import { DismissibleDetails } from './dismissible-details';
+import { ProjectOverview } from './project-overview';
 import { ProductionContext } from './production-context';
 import { useWorkbenchOnboarding } from './use-workbench-onboarding';
 import { WorkbenchOnboarding } from './workbench-onboarding';
 import { WorkbenchLoading } from './workbench-loading';
 import { pblRequest } from './request';
-import { continueActionLabel } from '@/lib/pbl/v3/presentation';
+import { continueActionLabel, needsInitialStart } from '@/lib/pbl/v3/presentation';
 export { pblRequest } from './request';
 import { SandboxRequestError } from '@/components/sandbox/client';
 
 interface WorkspaceProps {
   sceneId: string;
+  projectHero?: ProjectHeroDetails;
   onReturnToHero?: () => void;
   autoOnboarding?: boolean;
   initialEntry?: boolean;
@@ -64,6 +69,7 @@ interface WorkspaceProps {
 
 function PBLV3WorkspaceContent({
   sceneId,
+  projectHero,
   onReturnToHero,
   autoOnboarding = false,
   initialEntry = false,
@@ -312,16 +318,29 @@ function PBLV3WorkspaceContent({
     !!view?.evaluation &&
     (collectionFailed === evaluationKey ||
       ['unknown', 'unavailable'].includes(view.evaluation.state));
+  const initialStart = !!view && needsInitialStart(view);
+  const waitingToStart = initialStart && pendingAction !== 'begin';
   const opening = useRef('');
   useEffect(() => {
-    if (!view?.needsOpening || !view.environment?.ready || view.busy || pending || dirtyFiles)
+    if (
+      initialStart ||
+      !view?.needsOpening ||
+      !view.environment?.ready ||
+      view.busy ||
+      pending ||
+      dirtyFiles
+    )
       return;
     const key = `${view.id}:${view.environmentId}:${view.state.position.milestoneId}:${view.state.position.stageIndex}:${view.role}`;
     if (opening.current === key) return;
     opening.current = key;
     void command('begin');
-  }, [view, pending, dirtyFiles, command]);
+  }, [view, pending, dirtyFiles, command, initialStart]);
   const quiz = view?.state.collected[view.state.position.milestoneId ?? '']?.quiz;
+  const quizUnchanged =
+    !!recordedAnswers &&
+    answers.length === recordedAnswers.length &&
+    answers.every((answer, index) => answer === recordedAnswers[index]);
   // All teaching actions share their prerequisites, with an explicit path out
   // of each blocked state. Draft input stays editable during recovery.
   const blockedReason =
@@ -359,28 +378,29 @@ function PBLV3WorkspaceContent({
       (!['open', 'prepare'].includes(pendingAction ?? '') &&
         !!workbench &&
         workbench.revision >= view!.revision));
-  // Only a brand-new project's actual open/prepare request blocks input.
-  // Continue/recovery and passive unavailable views remain usable, independently
-  // of whether this study still needs its guide.
+  // First entry includes the HTTP request AND its matching workspace snapshot.
+  // Keep one barrier until the guide can take over before paint. Continue/recovery
+  // and passive unavailable views remain usable.
   const [entrySettled, setEntrySettled] = useState(false);
+  const [entrySlow, setEntrySlow] = useState(false);
+  const entryReady = onboardingReady && draftsRestored;
   const entryLoading =
     initialEntry &&
     !entrySettled &&
-    pending &&
-    ['open', 'prepare'].includes(pendingAction ?? '') &&
+    !entryReady &&
     !view?.busy &&
     view?.state.status !== 'completed' &&
     !onboardingBlocked &&
     !['unavailable', 'retrying'].includes(stream.status);
   useEffect(() => {
-    if (onboardingReady || onboardingBlocked || ['unavailable', 'retrying'].includes(stream.status))
+    if (entryReady || onboardingBlocked || ['unavailable', 'retrying'].includes(stream.status))
       setEntrySettled(true);
-  }, [onboardingReady, onboardingBlocked, stream.status]);
+  }, [entryReady, onboardingBlocked, stream.status]);
   useEffect(() => {
     if (!entryLoading) return;
-    // Do not trap a learner behind an unconfirmed remote operation. Releasing
-    // the modal does not cancel or retry it; the normal pending UI stays visible.
-    const timer = window.setTimeout(() => setEntrySettled(true), 30_000);
+    // A slow operation needs an exit, not an apparently usable workspace.
+    // Returning to the Hero does not cancel or retry the unconfirmed request.
+    const timer = window.setTimeout(() => setEntrySlow(true), 30_000);
     return () => window.clearTimeout(timer);
   }, [entryLoading]);
   const onboarding = useWorkbenchOnboarding({
@@ -417,7 +437,9 @@ function PBLV3WorkspaceContent({
       ref={workspaceRoot}
       tabIndex={-1}
       data-pbl-focus-owner
-      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground"
+      // The chrome is a fixed viewport. Programmatic scrollIntoView (including
+      // replay-button focus) must scroll inner panes, never this overlay coordinate root.
+      className="relative flex h-full min-h-0 flex-col overflow-clip bg-background text-foreground"
       data-testid="pbl-v3-workspace"
       // Editor, terminal and teaching inputs own their keys, not the host's slide/chat shortcuts.
       onKeyDown={(event) => event.stopPropagation()}
@@ -484,7 +506,7 @@ function PBLV3WorkspaceContent({
                 {t('pblV3.report')}
               </button>
             )}
-            <details className="relative text-xs">
+            <DismissibleDetails className="relative text-xs">
               <summary
                 data-pbl-tour="environment"
                 aria-label={t('pblV3.ide.environmentDetails')}
@@ -513,7 +535,7 @@ function PBLV3WorkspaceContent({
                   </p>
                 )}
               </div>
-            </details>
+            </DismissibleDetails>
           </>
         )}
         <button
@@ -804,6 +826,32 @@ function PBLV3WorkspaceContent({
 
                 <div className="pbl-task-area flex min-h-0 flex-1 flex-col">
                   <LearningConversation
+                    waitingToStart={waitingToStart}
+                    overview={
+                      <ProjectOverview
+                        key={view.id}
+                        view={view}
+                        hero={projectHero}
+                        startAction={
+                          waitingToStart ? (
+                            <button
+                              type="button"
+                              className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground transition-colors enabled:hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={
+                                !onboardingReady ||
+                                (blockedReason !== null && blockedReason !== 'opening') ||
+                                onboarding.active ||
+                                entryLoading
+                              }
+                              onClick={() => void command('begin')}
+                            >
+                              <ArrowRight size={18} aria-hidden="true" />
+                              {t('pblV3.overview.startLearning')}
+                            </button>
+                          ) : undefined
+                        }
+                      />
+                    }
                     modalActive={onboarding.active || entryLoading}
                     view={view}
                     onOpenFile={(reference) => {
@@ -823,6 +871,7 @@ function PBLV3WorkspaceContent({
                     requesting={['chat', 'begin', 'retry'].includes(pendingAction ?? '')}
                   />
                   <TaskDock
+                    actionDisabled={disabled}
                     modalActive={onboarding.active || entryLoading}
                     key={`${view.id}:${view.state.position.milestoneIndex}:${view.state.position.stageIndex}`}
                     view={view}
@@ -898,16 +947,23 @@ function PBLV3WorkspaceContent({
                       ) : (
                         view.actions.includes('next') && (
                           <button
-                            className="pbl-stage-action inline-flex h-7 min-w-0 max-w-[220px] shrink-0 items-center justify-center truncate rounded-md border px-3 text-xs font-semibold transition-colors disabled:cursor-not-allowed"
+                            className="pbl-stage-action flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-lg border px-3 text-center text-xs font-semibold transition-colors disabled:cursor-not-allowed"
                             data-state={disabled ? 'disabled' : 'ready'}
                             disabled={disabled}
                             aria-busy={pendingAction === 'next'}
                             onClick={() => void command('next')}
                           >
                             {pendingAction === 'next' && (
-                              <LoaderCircle size={13} className="mr-1 animate-spin" />
+                              <LoaderCircle size={13} className="shrink-0 animate-spin" />
                             )}
-                            {continueActionLabel(view, t)}
+                            <span className="line-clamp-2 min-w-0 break-words leading-4">
+                              {continueActionLabel(view, t)}
+                            </span>
+                            <ArrowRight
+                              size={15}
+                              className="shrink-0 rtl:-scale-x-100"
+                              aria-hidden="true"
+                            />
                           </button>
                         )
                       )
@@ -1108,6 +1164,7 @@ function PBLV3WorkspaceContent({
                         className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:cursor-default disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none motion-reduce:transition-none sm:w-auto sm:justify-self-end"
                         disabled={
                           disabled ||
+                          quizUnchanged ||
                           view.questions.some(
                             (question, index) =>
                               !Number.isInteger(answers[index]) ||
@@ -1120,15 +1177,25 @@ function PBLV3WorkspaceContent({
                       >
                         {pendingAction === 'quiz' ? (
                           <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />
+                        ) : quizUnchanged ? (
+                          <Check aria-hidden="true" size={16} />
                         ) : (
                           <ClipboardCheck aria-hidden="true" size={16} />
                         )}
-                        {t('pblV3.submitQuiz')}
+                        {t(
+                          pendingAction === 'quiz'
+                            ? 'pblV3.submitting'
+                            : quizUnchanged
+                              ? 'pblV3.submitted'
+                              : quiz
+                                ? 'pblV3.resubmit'
+                                : 'pblV3.submitQuiz',
+                        )}
                       </button>
                     )}
                   </TaskDock>
                 </div>
-                {view.actions.includes('chat') && (
+                {!waitingToStart && view.actions.includes('chat') && (
                   <form
                     data-pbl-tour="composer"
                     className="shrink-0 border-t bg-background p-3"
@@ -1138,6 +1205,7 @@ function PBLV3WorkspaceContent({
                     }}
                   >
                     {blockedReason &&
+                      blockedReason !== 'busy' &&
                       blockedReason !== 'unsaved' &&
                       blockedReason !== 'pending' && (
                         <div
@@ -1160,7 +1228,9 @@ function PBLV3WorkspaceContent({
                           )}
                         </div>
                       )}
-                    {(blockedReason === 'unsaved' || blockedReason === 'pending') && (
+                    {(blockedReason === 'busy' ||
+                      blockedReason === 'unsaved' ||
+                      blockedReason === 'pending') && (
                       <span id={blockedId} className="sr-only">
                         {t(`pblV3.inputBlocked.${blockedReason}`)}
                       </span>
@@ -1190,7 +1260,7 @@ function PBLV3WorkspaceContent({
                         {view.busy ? (
                           <button
                             type="button"
-                            className="rounded-full bg-primary p-2 text-primary-foreground"
+                            className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700 disabled:opacity-40"
                             aria-label={t('pblV3.cancel')}
                             disabled={pending}
                             onClick={() => void command('cancel')}
@@ -1224,7 +1294,12 @@ function PBLV3WorkspaceContent({
           />
         </>
       )}
-      {entryLoading && <WorkbenchLoading root={workspaceRoot} />}
+      {entryLoading && (
+        <WorkbenchLoading
+          root={workspaceRoot}
+          onReturnToHero={entrySlow ? onReturnToHero : undefined}
+        />
+      )}
       {view && onboarding.active && (
         <WorkbenchOnboarding
           key={view.id}

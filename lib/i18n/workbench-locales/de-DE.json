@@ -34,10 +34,16 @@
     "placeholder": "Schreibe deine Antwort",
     "confirm": "Bestätigen",
     "submit": "Absenden",
-    "dismiss": "Verwerfen",
+    "dismiss": "Einklappen",
     "inFormBelow": "Antworte im Formular unten",
     "inPreview": "In der Vorschau beantworten",
-    "multiAnswerSeparator": ", "
+    "multiAnswerSeparator": ", ",
+    "recommended": "Empfohlen",
+    "autoConfirm": "Automatisch bestätigen",
+    "autoConfirmed": "Empfohlene Option automatisch gewählt – jederzeit änderbar",
+    "showDetails": "Mehr anzeigen",
+    "hideDetails": "Weniger anzeigen",
+    "orAnswerInChat": "Du kannst auch direkt im Chat antworten"
   },
   "material": {
     "maxSelected": "Du kannst höchstens {{count}} Materialien gleichzeitig auswählen",
@@ -48,7 +54,9 @@
     "fileTooLargeWithLimit": "Die Datei ist zu groß. Wähle eine Datei mit höchstens {{limit}} MB aus.",
     "unsupportedType": "Dieser Dateityp wird nicht unterstützt. Wähle eine unterstützte Datei aus.",
     "quotaExceeded": "Upload-Limit für Materialien erreicht.",
-    "storageFull": "Der Speicherplatz ist voll. Dieses Material konnte nicht hochgeladen werden."
+    "storageFull": "Der Speicherplatz ist voll. Dieses Material konnte nicht hochgeladen werden.",
+    "uploadFailedShort": "Upload fehlgeschlagen",
+    "retryFailed": "Die Analyse konnte nicht neu gestartet werden. Bitte versuche es erneut."
   },
   "skill": {
     "listFailed": "Die Skill-Liste konnte nicht geladen werden",
@@ -139,9 +147,7 @@
     "listSeparator": ", ",
     "group": {
       "tools": "{{count}} Tool-Aufrufe",
-      "skills": "{{count}} Skills",
-      "running": "Läuft",
-      "error": "Mit Fehlern",
+      "failed": "{{count}} fehlgeschlagen",
       "done": "Abgeschlossen"
     },
     "section": {

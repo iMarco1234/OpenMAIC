@@ -11,29 +11,27 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 /** Use the same follow/release/re-follow mechanism as the Pro workbench. */
 export function ConversationViewport({
   children,
+  header,
   sent,
   generating,
   hidden = false,
   onClick,
 }: {
   children?: ReactNode;
+  header?: ReactNode;
   sent: number;
   generating: boolean;
   hidden?: boolean;
   onClick: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
   const { t } = useI18n();
-  const stick = useStickToBottom({
-    initial: 'instant',
-    resize: 'instant',
-  });
+  const stick = useStickToBottom({ initial: 'instant', resize: 'instant' });
   const { contentRef, isNearBottom, scrollToBottom } = stick;
   const viewportRef = useWorkbenchViewportAnchor(stick);
   const previous = useRef(sent);
   useLayoutEffect(() => {
     if (previous.current !== sent) {
       previous.current = sent;
-      // A new learner send explicitly asks to follow its answer, as in Pro.
       void scrollToBottom({ animation: 'instant' });
     }
   }, [sent, scrollToBottom]);
@@ -52,6 +50,11 @@ export function ConversationViewport({
         className="pbl-conversation-scroll min-h-0 flex-1 overflow-y-auto"
       >
         <div ref={contentRef} className="flex flex-col gap-5 p-4" onClick={onClick}>
+          {header && (
+            <div onPointerDownCapture={stick.stopScroll} onKeyDownCapture={stick.stopScroll}>
+              {header}
+            </div>
+          )}
           {children}
         </div>
       </div>

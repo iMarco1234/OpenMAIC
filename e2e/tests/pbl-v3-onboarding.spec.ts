@@ -25,13 +25,17 @@ async function project(
     completedArtifacts = completed,
     prepareGate,
     prepareFailure = false,
+    lagPreparationWorkbench = false,
     beginGate,
+    beginFailures = 0,
+    existingQueuedRun = false,
     lagOpeningWorkbench = false,
     opening = false,
     initialDraft = '',
     staleWorkbench = false,
     priorProgress,
     openingText = '',
+    finishedWork,
   }: {
     started?: boolean;
     secondScene?: boolean;
@@ -47,13 +51,17 @@ async function project(
     completedArtifacts?: boolean;
     prepareGate?: Promise<void>;
     prepareFailure?: boolean;
+    lagPreparationWorkbench?: boolean;
     beginGate?: Promise<void>;
+    beginFailures?: number;
+    existingQueuedRun?: boolean;
     lagOpeningWorkbench?: boolean;
     opening?: boolean;
     initialDraft?: string;
     staleWorkbench?: boolean;
     priorProgress?: 'stage' | 'reset' | 'discard';
     openingText?: string;
+    finishedWork?: string;
   } = {},
 ) {
   await page.addInitScript((language) => localStorage.setItem('locale', language), locale);
@@ -134,7 +142,7 @@ async function project(
     files: ['PLAN.md'],
     busy,
     messages: openingText ? [{ role: 'assistant', text: openingText }] : [],
-    roleRun: null,
+    roleRun: existingQueuedRun ? { status: 'queued', failure: null, canRetry: false } : null,
     decisions: [],
     questions: quiz
       ? [{ q: 'A synthetic question', options: ['Draft choice', 'Other choice'] }]
@@ -213,6 +221,7 @@ async function project(
           hero: {
             title: view.title,
             description: 'A synthetic project for the workspace guide.',
+            ...(finishedWork ? { finishedWork } : {}),
             gains: ['Read, decide and review'],
             instructorName: 'Project tutor',
             milestoneCount: 1,
@@ -237,9 +246,14 @@ async function project(
         await prepareGate;
         view.environment = { state: 'running', ready: true };
         view.revision++;
-        workbench.revision = view.revision;
+        if (!lagPreparationWorkbench) workbench.revision = view.revision;
       }
       if (body.command.type === 'begin') {
+        if (beginFailures-- > 0)
+          return route.fulfill({
+            status: 503,
+            json: { error: { message: 'Opening temporarily unavailable' } },
+          });
         await beginGate;
         view.needsOpening = false;
         view.busy = true;
@@ -270,6 +284,420 @@ async function project(
 
 const tour = (page: Page) => page.locator('[data-pbl-onboarding="card"]');
 const next = (page: Page) => tour(page).locator('footer button').last();
+
+test('keeps the authored overview visible while its workbench guide toggles independently', async ({
+  page,
+  learningEvents,
+}) => {
+  const fixture = await project(page, learningEvents, {
+    application: false,
+    openingText: 'Welcome. First, we will work through the opening concepts together.',
+    finishedWork: 'The complete greeting application with saved history.',
+  });
+  fixture.view.milestones![0].goal = 'Connect a name to a greeting.';
+  fixture.view.milestones![0].outcome = 'A working greeting application.';
+  fixture.view.revision++;
+  await fixture.publish();
+  const overview = page.locator('#pbl-project-overview');
+  await expect(tour(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(tour(page)).toHaveCount(0);
+  const guideDetails = overview.locator('details');
+  const guideToggle = guideDetails.locator('summary');
+  await expect(guideDetails).not.toHaveAttribute('open');
+  await expect(overview.getByRole('heading', { level: 3 })).toBeVisible();
+  await expect(overview).toContainText('A synthetic project for the workspace guide.');
+  await expect(overview).toContainText('Connect a name to a greeting.');
+  await expect(overview).toContainText('A working greeting application.');
+  await expect(overview.locator('.pbl-overview-result')).toContainText(
+    'The complete greeting application with saved history.',
+  );
+  await expect(overview.locator('.pbl-overview-result')).not.toContainText(
+    'A working greeting application.',
+  );
+  await expect(overview.getByRole('list', { name: 'Project roadmap' })).toContainText('Greeting');
+  await expect(overview).not.toContainText('Current learning step');
+  await expect(overview).not.toContainText('Current goal');
+  const opening = page.getByTestId('pbl-agent-turn').first();
+  await expect(opening.getByRole('link', { name: 'Project overview' })).toHaveCount(0);
+  const geometry = await overview.evaluate((el) => {
+    const viewport = el.closest('.pbl-conversation-scroll');
+    const content = el.querySelector('.pbl-overview-content');
+    const outer = viewport!.getBoundingClientRect(),
+      card = el.getBoundingClientRect();
+    return {
+      left: card.left - outer.left,
+      right: outer.right - card.right,
+      overflow: getComputedStyle(content!).overflowY,
+      maxHeight: getComputedStyle(content!).maxHeight,
+    };
+  });
+  expect(geometry.left).toBeGreaterThanOrEqual(16);
+  expect(geometry.right).toBeGreaterThanOrEqual(16);
+  // The card fills the transcript at wide sizes too; only its content is compact.
+  await page.getByRole('button', { name: 'Toggle code workspace', exact: true }).click();
+  await expect
+    .poll(() =>
+      overview.evaluate((el) => el.parentElement!.clientWidth - el.getBoundingClientRect().width),
+    )
+    .toBeLessThanOrEqual(1);
+  expect(geometry.overflow).toBe('visible');
+  expect(geometry.maxHeight).toBe('none');
+  await guideToggle.click();
+  await expect(guideDetails).toHaveAttribute('open');
+  await expect(guideDetails.locator('ol')).toBeVisible();
+  await expect(overview).toContainText('Connect a name to a greeting.');
+  // Server updates do not close a guide the learner is reading.
+  fixture.view.revision++;
+  await fixture.publish();
+  await expect(guideDetails).toHaveAttribute('open');
+  await guideToggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(guideDetails).not.toHaveAttribute('open');
+  await expect(guideToggle).toBeFocused();
+  await expect(guideDetails.locator('ol')).not.toBeVisible();
+  await expect(overview.getByRole('list', { name: 'Project roadmap' })).toBeVisible();
+  await expect(overview).toContainText('A working greeting application.');
+  expect(fixture.commands).toEqual([]);
+});
+
+test('shows only the current milestone goal and outcome in the drawer from its first step', async ({
+  page,
+  learningEvents,
+}) => {
+  const fixture = await project(page, learningEvents, { started: true, application: false });
+  fixture.view.milestones = [
+    {
+      id: 'greeting',
+      title: 'First milestone',
+      goal: 'First goal',
+      outcome: 'First result',
+      stages: ['teaching', 'dialogue', 'plan', 'code', 'tests', 'quiz', 'recap'],
+    },
+    {
+      id: 'second',
+      title: 'Second milestone',
+      goal: 'Second goal',
+      outcome: 'Second result',
+      stages: ['teaching', 'dialogue', 'plan', 'code', 'tests', 'quiz', 'recap'],
+    },
+  ];
+  fixture.view.revision++;
+  await fixture.publish();
+  const toggle = page.getByRole('button', { name: 'Current task', exact: true });
+  const drawer = page.getByRole('region', { name: 'Current task details' });
+  await toggle.click();
+  // Legacy packages keep milestone results without copying one into the final work.
+  await expect(page.locator('.pbl-overview-result')).toHaveCount(0);
+  const summary = drawer.getByTestId('pbl-current-milestone-summary');
+  await expect(summary).toContainText('Current milestone');
+  await expect(summary.getByText('Goal:', { exact: true })).toHaveCSS('display', 'inline');
+  await expect(summary.getByText('Outcome:', { exact: true })).toHaveCSS('display', 'inline');
+  await expect(summary).toContainText('First goal');
+  await expect(summary).toContainText('First result');
+  await expect(summary).not.toContainText('Second goal');
+  expect(await drawer.locator('.overflow-y-auto > *').first().getAttribute('data-testid')).toBe(
+    'pbl-current-milestone-summary',
+  );
+  await page.keyboard.press('Escape');
+  await expect(toggle).toBeFocused();
+  fixture.view.state.position = { milestoneIndex: 1, milestoneId: 'second', stageIndex: 0 };
+  fixture.view.revision++;
+  await fixture.publish();
+  await toggle.click();
+  await expect(summary).toContainText('Second goal');
+  await expect(summary).toContainText('Second result');
+  await expect(summary).not.toContainText('First goal');
+  expect(fixture.commands).toEqual([]);
+});
+
+for (const [width, guideCompleted] of [
+  [1365, false],
+  [390, false],
+  [1365, true],
+] as const) {
+  test(`first entry waits for Start learning, then follows normally at ${width}px (tour completed: ${guideCompleted})`, async ({
+    page,
+    learningEvents,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    let release!: () => void;
+    const beginGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fixture = await project(page, learningEvents, {
+      application: false,
+      guideCompleted,
+      opening: true,
+      beginGate,
+    });
+    if (!guideCompleted) {
+      await expect(tour(page)).toBeVisible();
+      expect(fixture.commands).toEqual([]);
+      await page.keyboard.press('Escape');
+    }
+    const start = page.getByRole('button', { name: 'Start learning', exact: true });
+    await expect(start).toBeEnabled();
+    await expect(page.getByTestId('pbl-agent-turn')).toHaveCount(0);
+    await expect(page.locator('.pbl-conversation-scroll')).toHaveCount(0);
+    await page.locator('#pbl-project-overview summary').click();
+    await fixture.publish();
+    expect(fixture.commands).toEqual([]);
+    await start.click();
+    // Feedback must precede the HTTP acknowledgment, not wait for stream output.
+    await expect(page.getByTestId('pbl-agent-turn')).toBeVisible();
+    await expect(start).toHaveCount(0);
+    expect(fixture.commands).toEqual(['begin']);
+    release();
+    await expect.poll(() => fixture.view.needsOpening).toBe(false);
+    const viewport = page.locator('.pbl-conversation-scroll');
+    const distance = () =>
+      viewport.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+    for (let chunk = 0; chunk < 3; chunk++) {
+      fixture.view.messages = [
+        { role: 'assistant', text: `Welcome chunk ${chunk}.\n\n`.repeat(60 + chunk * 10) },
+      ];
+      fixture.view.revision++;
+      await fixture.publish();
+      await expect(viewport).toContainText(`Welcome chunk ${chunk}.`);
+      await expect.poll(distance).toBeLessThanOrEqual(8);
+    }
+    const box = (await viewport.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -250);
+    const latest = page.getByTestId('pbl-conversation-scroll-button');
+    await expect(latest).toBeVisible();
+    const reading = await viewport.evaluate((el) => el.scrollTop);
+    fixture.view.messages[0].text += 'While reading earlier text.\n\n'.repeat(20);
+    fixture.view.revision++;
+    await fixture.publish();
+    await expect(viewport).toContainText('While reading earlier text.');
+    await expect.poll(() => viewport.evaluate((el) => el.scrollTop)).toBeCloseTo(reading, 0);
+    await latest.click();
+    await expect.poll(distance).toBeLessThanOrEqual(8);
+    fixture.view.busy = false;
+    fixture.view.roleRun = { status: 'succeeded', failure: null, canRetry: false };
+    await fixture.publish();
+    await page.mouse.wheel(0, -250);
+    await expect(latest).toBeVisible();
+    await page.getByLabel('Your message', { exact: true }).fill('I am ready.');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect.poll(distance).toBeLessThanOrEqual(8);
+    expect(fixture.commands).toEqual(['begin', 'chat']);
+  });
+}
+
+for (const entry of [
+  'delayed-guide',
+  'prepare',
+  'peek-return',
+  'existing-opening',
+  'later-stage',
+] as const) {
+  test(`first-entry start respects ${entry}`, async ({ page, learningEvents }) => {
+    let finishPrepare!: () => void;
+    const prepareGate = new Promise<void>((resolve) => {
+      finishPrepare = resolve;
+    });
+    const fixture = await project(page, learningEvents, {
+      application: false,
+      started: entry === 'peek-return' || entry === 'existing-opening',
+      guideCompleted: entry !== 'delayed-guide',
+      staleWorkbench: entry === 'delayed-guide',
+      environmentReady: entry !== 'prepare',
+      ...(entry === 'prepare' ? { prepareGate } : {}),
+      opening: entry !== 'existing-opening',
+      priorProgress: entry === 'later-stage' ? 'stage' : undefined,
+      openingText: entry === 'existing-opening' ? 'Existing opening.\n\n'.repeat(60) : '',
+    });
+    if (entry === 'existing-opening' || entry === 'later-stage') {
+      await expect(page.getByTestId('pbl-project-start')).toHaveCount(0);
+      if (entry === 'later-stage') await expect.poll(() => fixture.commands).toEqual(['begin']);
+      else
+        await expect
+          .poll(() =>
+            page
+              .locator('.pbl-conversation-scroll')
+              .evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop),
+          )
+          .toBeLessThanOrEqual(8);
+      return;
+    }
+    if (entry === 'delayed-guide') {
+      await expect(page.locator('#pbl-project-overview')).toBeVisible();
+      await expect(page.getByTestId('pbl-workbench-loading')).toBeVisible();
+      await expect(page.locator('#pbl-project-overview button').last()).toBeDisabled();
+      expect(fixture.commands).toEqual([]);
+      fixture.workbench.environmentId = fixture.view.environmentId!;
+      await fixture.publish();
+      await expect(tour(page)).toBeVisible();
+      expect(fixture.commands).toEqual([]);
+      await page.keyboard.press('Escape');
+    } else if (entry === 'prepare') {
+      await expect.poll(() => fixture.commands).toEqual(['prepare']);
+      finishPrepare();
+    }
+    await expect(page.getByRole('button', { name: 'Start learning', exact: true })).toBeEnabled();
+    await expect(page.getByTestId('pbl-agent-turn')).toHaveCount(0);
+    expect(fixture.commands).not.toContain('begin');
+    await fixture.publish();
+    await expect
+      .poll(() => page.getByTestId('pbl-project-start').evaluate((el) => el.scrollTop))
+      .toBe(0);
+  });
+}
+
+test('failed first start can be retried without automatic opening', async ({
+  page,
+  learningEvents,
+}) => {
+  const fixture = await project(page, learningEvents, {
+    application: false,
+    guideCompleted: true,
+    opening: true,
+    beginFailures: 1,
+  });
+  const start = page.getByRole('button', { name: 'Start learning', exact: true });
+  await start.click();
+  await expect(page.getByText('Opening temporarily unavailable', { exact: true })).toBeVisible();
+  await expect(start).toBeEnabled();
+  await fixture.publish();
+  expect(fixture.commands).toEqual(['begin']);
+  await start.click();
+  await expect(page.getByTestId('pbl-agent-turn')).toBeVisible();
+  await expect(start).toHaveCount(0);
+  expect(fixture.commands).toEqual(['begin', 'begin']);
+});
+
+test('an existing queued opening resumes its waiting bubble without Start learning', async ({
+  page,
+  learningEvents,
+}) => {
+  const fixture = await project(page, learningEvents, {
+    application: false,
+    started: true,
+    guideCompleted: true,
+    busy: true,
+    existingQueuedRun: true,
+  });
+  await expect(page.getByTestId('pbl-agent-turn')).toBeVisible();
+  await expect(page.getByTestId('pbl-project-start')).toHaveCount(0);
+  expect(fixture.commands).toEqual([]);
+});
+
+for (const [target, key] of [
+  ['overview summary', 'PageDown'],
+  ['reply link', 'Space'],
+] as const) {
+  test(`keyboard scrolling from the ${target} preserves reading during normal replies`, async ({
+    page,
+    learningEvents,
+  }) => {
+    const fixture = await project(page, learningEvents, {
+      application: false,
+      guideCompleted: true,
+      openingText:
+        (target === 'reply link' ? '[Read more](https://example.test/guide)\n\n' : '') +
+        'Opening background.\n\n'.repeat(60),
+    });
+    await expect(page.locator('[data-pbl-tour="replay"]')).toBeEnabled();
+    await page.evaluate(() => document.fonts.ready);
+    const viewport = page.locator('.pbl-conversation-scroll');
+    // Read earlier material using the normal scroll mechanism, with no opening hold.
+    await viewport.hover();
+    await page.mouse.wheel(0, -100000);
+    await expect.poll(() => viewport.evaluate((el) => el.scrollTop)).toBeLessThanOrEqual(1);
+    const control =
+      target === 'reply link'
+        ? viewport.getByRole('link', { name: 'Read more', exact: true })
+        : page.locator('#pbl-project-overview summary');
+    // Isolate the native scrolling key from focus's optional automatic scroll.
+    // PageDown/Space moves one page, so wait for scrollend and retain that passage.
+    await control.evaluate((el) => (el as HTMLElement).focus({ preventScroll: true }));
+    await expect(control).toBeFocused();
+    await viewport.evaluate((el) =>
+      el.addEventListener(
+        'scrollend',
+        () => el.setAttribute('data-keyboard-scroll-ended', 'true'),
+        { once: true },
+      ),
+    );
+    await page.keyboard.press(key);
+    await expect(viewport).toHaveAttribute('data-keyboard-scroll-ended', 'true');
+    const reading = await viewport.evaluate((el) => el.scrollTop);
+    expect(reading).toBeGreaterThan(0);
+    const distance = () =>
+      viewport.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop);
+    await expect.poll(distance).toBeGreaterThan(8);
+    fixture.view.messages[0].text += '\n\nMore text after keyboard navigation.\n\n'.repeat(20);
+    fixture.view.revision++;
+    await fixture.publish();
+    await expect(viewport).toContainText('More text after keyboard navigation.');
+    await expect.poll(() => viewport.evaluate((el) => el.scrollTop)).toBeCloseTo(reading, 0);
+    await page.getByTestId('pbl-conversation-scroll-button').click();
+    await expect.poll(distance).toBeLessThanOrEqual(8);
+    fixture.view.messages[0].text += '\n\nFollowing after keyboard reading.';
+    fixture.view.revision++;
+    await fixture.publish();
+    await expect(viewport).toContainText('Following after keyboard reading.');
+    await expect.poll(distance).toBeLessThanOrEqual(8);
+  });
+}
+
+test('highlights the existing next action only when progression is available', async ({
+  page,
+  learningEvents,
+}) => {
+  const fixture = await project(page, learningEvents, { started: true, application: false });
+  const advance = page.getByTestId('pbl-advance-bar');
+  await expect(advance).toHaveCount(0);
+  await expect(page.locator('#pbl-project-overview details')).not.toHaveAttribute('open');
+  fixture.view.actions = ['chat', 'next'];
+  fixture.view.revision++;
+  await fixture.publish();
+  const advanceButton = advance.getByRole('button', { name: 'Continue to Make your decisions' });
+  await expect(advanceButton).toBeEnabled();
+  await expect(advance).toHaveAttribute('data-attention', 'true');
+  await advanceButton.hover();
+  await expect(advance).toHaveAttribute('data-attention', 'false');
+  await page.mouse.move(0, 0);
+  fixture.view.revision++;
+  await fixture.publish();
+  await expect(advance).toHaveAttribute('data-attention', 'false');
+  const barBox = (await advance.boundingBox())!;
+  const buttonBox = (await advanceButton.boundingBox())!;
+  const composerBox = (await page
+    .locator('[data-pbl-tour="composer"] textarea')
+    .locator('..')
+    .boundingBox())!;
+  expect(buttonBox.height).toBe(40);
+  expect(buttonBox.width).toBeCloseTo(barBox.width, 0);
+  expect(buttonBox.x).toBeCloseTo(composerBox.x, 0);
+  expect(buttonBox.width).toBeCloseTo(composerBox.width, 0);
+  expect(fixture.commands).toEqual([]);
+  await advanceButton.click({ position: { x: 4, y: 20 } });
+  await expect.poll(() => fixture.commands).toEqual(['next']);
+});
+
+test('stops next-step attention after eight seconds and respects reduced motion', async ({
+  page,
+  learningEvents,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const fixture = await project(page, learningEvents, { started: true, application: false });
+  await page.clock.install();
+  fixture.view.actions = ['chat', 'next'];
+  fixture.view.revision++;
+  await fixture.publish();
+  const advance = page.getByTestId('pbl-advance-bar');
+  await expect(advance).toHaveAttribute('data-attention', 'true');
+  await expect(advance).toHaveCSS('animation-name', 'none');
+  await page.clock.fastForward(8_001);
+  await expect(advance).toHaveAttribute('data-attention', 'false');
+  await expect(advance.getByRole('button')).toBeEnabled();
+  expect(fixture.commands).toEqual([]);
+});
+
 async function finish(page: Page) {
   while (await tour(page).count()) {
     const last = (await tour(page).getAttribute('data-step')) === 'replay';
@@ -333,14 +761,17 @@ test('blocks pointer and keyboard interaction during preparation, then opens the
   await page.keyboard.type('Must not become a draft');
   await loading.click({ position: { x: 10, y: 10 } });
   await expect(loading).toBeVisible();
-  await expect(page.locator('[data-pbl-tour="composer"] textarea')).toHaveValue('');
+  await expect(page.locator('[data-pbl-tour="composer"] textarea')).toHaveCount(0);
   await expect(page.locator('[data-pbl-tour="replay"]')).toBeDisabled();
   expect(fixture.commands).toEqual(['prepare']);
   release();
   await expect(loading).toHaveCount(0);
   await expect(tour(page)).toHaveAttribute('data-step', 'progress');
+  expect(fixture.commands).toEqual(['prepare']);
+  expect(fixture.view.busy).toBe(false);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Start learning', exact: true }).click();
   await expect.poll(() => fixture.commands).toEqual(['prepare', 'begin']);
-  expect(fixture.view.busy).toBe(true);
 });
 
 test('loading keeps its accessible modal and focus through native fullscreen changes', async ({
@@ -457,28 +888,42 @@ for (const completed of [false, true]) {
   });
 }
 
-test('a hung initial prepare releases the barrier without retrying the unknown operation', async ({
-  page,
-  learningEvents,
-}) => {
-  await page.clock.install();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
+for (const outcome of ['return', 'complete'] as const) {
+  test(`a slow initial prepare stays covered until ${outcome} without retrying`, async ({
+    page,
+    learningEvents,
+  }) => {
+    await page.clock.install();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fixture = await project(page, learningEvents, {
+      environmentReady: false,
+      prepareGate: gate,
+    });
+    await expect.poll(() => fixture.commands).toEqual(['prepare']);
+    await expect(page.getByTestId('pbl-workbench-loading')).toBeVisible();
+    await page.clock.runFor(30_100);
+    await expect(page.getByTestId('pbl-workbench-loading')).toBeVisible();
+    const exit = page.getByRole('dialog').getByRole('button', {
+      name: 'Back to project introduction',
+      exact: true,
+    });
+    await expect(exit).toBeEnabled();
+    expect(fixture.commands).toEqual(['prepare']);
+    if (outcome === 'return') {
+      await exit.click();
+      release();
+      await expect(page.getByTestId('pbl-v3-workspace')).toHaveCount(0);
+    } else {
+      release();
+      await expect(tour(page)).toHaveAttribute('data-step', 'progress');
+      await expect(page.getByTestId('pbl-workbench-loading')).toHaveCount(0);
+      expect(fixture.commands).toEqual(['prepare']);
+    }
   });
-  const fixture = await project(page, learningEvents, {
-    environmentReady: false,
-    prepareGate: gate,
-  });
-  await expect.poll(() => fixture.commands).toEqual(['prepare']);
-  await expect(page.getByTestId('pbl-workbench-loading')).toBeVisible();
-  await page.clock.runFor(30_100);
-  await expect(page.getByTestId('pbl-workbench-loading')).toHaveCount(0);
-  expect(fixture.commands).toEqual(['prepare']);
-  await page.getByRole('button', { name: 'Back to project overview', exact: true }).click();
-  release();
-  await expect(page.getByTestId('pbl-v3-workspace')).toHaveCount(0);
-});
+}
 
 test('uses the current progress anchor after a live stage transition', async ({
   page,
@@ -517,6 +962,7 @@ test('keeps the current page when an HTTP reply arrives before its workspace sna
   });
   const fixture = await project(page, learningEvents, {
     opening: true,
+    openingText: 'Earlier teaching content.',
     beginGate,
     lagOpeningWorkbench: true,
   });
@@ -684,6 +1130,8 @@ test('existing quiz uses four regions, preserves task drafts, and survives denie
   await page.locator('[data-pbl-tour="replay"]').click();
   await expect(tour(page)).toContainText('Workspace guide 1/4');
   await finish(page);
+  // Replaying from outside dismisses the drawer, but retains its answers.
+  await page.getByRole('button', { name: 'Current task', exact: true }).click();
   await expect(page.getByRole('radio', { name: 'Draft choice', exact: true })).toBeChecked();
   expect(fixture.commands).toEqual([]);
 });
@@ -734,7 +1182,7 @@ test('requires a current matching snapshot only for entry and prioritizes real f
 }) => {
   const fixture = await project(page, learningEvents, { staleWorkbench: true });
   await expect(page.locator('[data-pbl-tour="replay"]')).toBeDisabled();
-  await expect(page.getByTestId('pbl-workbench-loading')).toHaveCount(0);
+  await expect(page.getByTestId('pbl-workbench-loading')).toBeVisible();
   await expect(tour(page)).toHaveCount(0);
   fixture.workbench.environmentId = fixture.view.environmentId!;
   fixture.workbench.revision = fixture.view.revision;
@@ -848,10 +1296,11 @@ test('narrow conversation jump control stays centered without widening either me
   expect(control.x + control.width / 2).toBeCloseTo(viewport.x + viewport.width / 2, 0);
   expect(bubble.x - viewport.x).toBeCloseTo(16, 0);
   expect(viewport.contentRight - bubble.x - bubble.width).toBeCloseTo(16, 0);
-  const learner = (await assistant
-    .getByText('Learner question', { exact: true })
-    .locator('..')
-    .boundingBox())!;
+  const learnerBubble = assistant.getByText('Learner question', { exact: true }).locator('..');
+  await expect(learnerBubble).toHaveCSS('background-color', 'rgb(11, 122, 82)');
+  await expect(learnerBubble).toHaveCSS('color', 'rgb(255, 255, 255)');
+  await expect(learnerBubble).toHaveCSS('padding', '8px 12px');
+  const learner = (await learnerBubble.boundingBox())!;
   expect(viewport.contentRight - learner.x - learner.width).toBeCloseTo(16, 0);
   expect(control.y + control.height).toBeLessThanOrEqual(viewport.y + viewport.height);
 });
@@ -872,6 +1321,9 @@ for (const [width, height, locale, docked] of [
     await finish(page);
     if (docked) await page.getByTestId('pbl-workspace-size').click();
     await page.locator('[data-pbl-tour="replay"]').click();
+    await expect
+      .poll(() => page.getByTestId('pbl-v3-workspace').evaluate((owner) => owner.scrollTop))
+      .toBe(0);
     const selectors = [
       '[data-pbl-tour="task"]',
       '[data-pbl-tour="conversation"]',
@@ -1087,10 +1539,11 @@ test('hides Latest during the guide and restores the working control after dismi
     .toBeGreaterThan(8);
   const latest = page.getByTestId('pbl-conversation-scroll-button');
   await expect(latest).toHaveCount(0);
-  const height = await viewport.evaluate((el) => el.clientHeight);
   await page.keyboard.press('Escape');
   await expect(tour(page)).toHaveCount(0);
+  await expect(page.locator('#pbl-project-overview details')).not.toHaveAttribute('open');
   await expect(latest).toBeVisible();
+  const height = await viewport.evaluate((el) => el.clientHeight);
   await latest.click();
   await expect
     .poll(() => viewport.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop))
@@ -1099,7 +1552,7 @@ test('hides Latest during the guide and restores the working control after dismi
 });
 
 for (const started of [false, true]) {
-  test(`editing during restore defers auto-entry and preserves spaces/focus (Continue=${started})`, async ({
+  test(`preparation protects first entry and preserves returning drafts (Continue=${started})`, async ({
     page,
     learningEvents,
   }) => {
@@ -1115,9 +1568,24 @@ for (const started of [false, true]) {
       prepareGate: gate,
     });
     await expect.poll(() => fixture.commands).toContain('prepare');
-    if (!started) await page.clock.runFor(30_100);
-    await expect(page.getByTestId('pbl-workbench-loading')).toHaveCount(0);
     const composer = page.locator('[data-pbl-tour="composer"] textarea');
+    if (!started) {
+      await page.clock.runFor(30_100);
+      await expect(page.getByTestId('pbl-workbench-loading')).toBeVisible();
+      await page.keyboard.press('Tab');
+      await page.keyboard.type('blocked');
+      await expect(composer).toHaveValue('');
+      release();
+      await expect(tour(page)).toBeVisible();
+      await finish(page);
+      // Wait for the dialog's deferred focus restoration before typing.
+      await expect(page.getByTestId('pbl-v3-workspace')).toBeFocused();
+      await composer.fill('Words with spaces after recovery');
+      await expect(composer).toBeFocused();
+      await expect(composer).toHaveValue('Words with spaces after recovery');
+      return;
+    }
+    await expect(page.getByTestId('pbl-workbench-loading')).toHaveCount(0);
     await composer.fill('A draft before recovery');
     // Deferral lasts for this visit even if the learner clears the draft.
     await composer.fill('');
@@ -1215,6 +1683,14 @@ for (const [width, height] of [
     const viewport = page.locator('.pbl-conversation-scroll');
     const latest = page.getByTestId('pbl-conversation-scroll-button');
     const before = await viewport.evaluate((el) => el.clientHeight);
+    // Opening and later replies follow normally. Read upward, then resume with Latest.
+    await expect
+      .poll(() => viewport.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop))
+      .toBeLessThanOrEqual(8);
+    await viewport.hover();
+    await page.mouse.wheel(0, -250);
+    await expect(latest).toBeVisible();
+    await latest.click();
     await expect
       .poll(() => viewport.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop))
       .toBeLessThanOrEqual(1);
@@ -1819,3 +2295,217 @@ for (const checker of ['tests', 'quiz'] as const) {
     await expect.poll(distance).toBeLessThanOrEqual(1);
   });
 }
+
+test('independent columns, narrow assistant and a single scrolling tab row', async ({
+  page,
+  learningEvents,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 850 });
+  const f = await project(page, learningEvents, { started: true, locale: 'zh-CN' });
+  await expect(page.locator('[data-pbl-tour="replay"]')).toBeEnabled();
+  const names = [
+    'PLAN.md',
+    'DialogueService.java',
+    'CourseChoices.java',
+    'ChatEndpoint.java',
+    'Json.java',
+    'Application.java',
+  ];
+  f.view.files = names;
+  f.view.revision++;
+  await f.publish();
+  const ide = page.getByTestId('pbl-ide');
+  await expect(ide.locator('.monaco-editor')).toBeVisible();
+  const tabs = ide.getByRole('tablist');
+  for (const name of names.slice(1)) await ide.getByRole('button', { name, exact: true }).click();
+  await expect(tabs.getByRole('tab', { name: 'Application.java', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const measure = async () => ({
+    ide: (await ide.boundingBox())!,
+    files: (await ide.getByRole('navigation', { name: '项目文件', exact: true }).boundingBox())!,
+    app: (await page.getByTestId('pbl-application-panel').boundingBox())!,
+    assistant: (await page.getByTestId('pbl-assistant').boundingBox())!,
+  });
+  const drag = async (separator: ReturnType<Page['getByRole']>, delta: number) => {
+    const b = (await separator.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + Math.min(120, b.height / 2));
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + delta, b.y + Math.min(120, b.height / 2), {
+      steps: 14,
+    });
+    await page.mouse.up();
+  };
+  // Hero expansion and platform metrics can leave the tree near its 45% max.
+  // Start away from that constraint so shrinking the IDE tests pixel preservation.
+  const initial = await measure();
+  await drag(
+    page.getByRole('separator', { name: '调整文件目录宽度', exact: true }),
+    initial.ide.width * 0.24 - initial.files.width,
+  );
+  await expect
+    .poll(async () => {
+      const layout = await measure();
+      return layout.files.width / layout.ide.width;
+    })
+    .toBeCloseTo(0.24, 1);
+  const before = await measure();
+  await page.screenshot({ path: testInfo.outputPath('initial.png') });
+  const dividers = page.getByRole('separator', { name: '调整工作区与助手宽度', exact: true });
+  await drag(dividers.last(), 100);
+  const outer = await measure();
+  await page.screenshot({ path: testInfo.outputPath('outer-drag.png') });
+  // The tree must still fit below its max after the planned 60px IDE shrink.
+  expect(outer.files.width).toBeLessThan((outer.ide.width - 60) * 0.45 - 2);
+  await drag(dividers.first(), -60);
+  const inner = await measure();
+  await page.screenshot({ path: testInfo.outputPath('inner-drag.png') });
+  await ide.screenshot({ path: testInfo.outputPath('tabs.png') });
+  const tabRows = await tabs
+    .getByRole('tab')
+    .evaluateAll(
+      (elements) => new Set(elements.map((e) => Math.round(e.getBoundingClientRect().y))).size,
+    );
+  const tabOverflow = await tabs.evaluate((e) => ({ scroll: e.scrollWidth, width: e.clientWidth }));
+  {
+    expect(Math.abs(outer.ide.width - before.ide.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(outer.files.width - before.files.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(inner.assistant.width - outer.assistant.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(inner.files.width - outer.files.width)).toBeLessThanOrEqual(2);
+    expect(tabRows).toBe(1);
+    expect(tabOverflow.scroll).toBeGreaterThan(tabOverflow.width);
+    await tabs.evaluate((e) => (e.scrollLeft = 0));
+    await tabs.getByRole('tab', { name: 'PLAN.md', exact: true }).click();
+    await ide.getByRole('button', { name: 'Application.java', exact: true }).click();
+    await expect.poll(() => tabs.evaluate((e) => e.scrollLeft)).toBeGreaterThan(0);
+  }
+  const width = await page.getByTestId('pbl-workbench-split').evaluate((e) => e.clientWidth);
+  await drag(dividers.last(), inner.assistant.width - width * 0.22);
+  const narrow = await measure();
+  await page.screenshot({ path: testInfo.outputPath('narrow.png') });
+  expect(narrow.assistant.width).toBeGreaterThan(200);
+  expect(narrow.assistant.width / width).toBeLessThan(0.23);
+});
+
+for (const width of [1365, 390]) {
+  test(`first-entry barrier hands off to a populated guide after a delayed snapshot at ${width}px`, async ({
+    page,
+    learningEvents,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    let release!: () => void;
+    const prepareGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fixture = await project(page, learningEvents, {
+      environmentReady: false,
+      prepareGate,
+      lagPreparationWorkbench: true,
+      opening: true,
+      finishedWork: 'A complete application that preserves its saved records. '.repeat(45),
+    });
+    const loading = page.getByTestId('pbl-workbench-loading');
+    await expect(loading).toBeVisible();
+    release();
+    await expect.poll(() => fixture.view.environment?.ready).toBe(true);
+    // The prepare response has arrived, but the stream still has the prior revision.
+    await expect(page.locator('[data-pbl-tour="replay"]')).toBeDisabled();
+    await expect(loading).toBeVisible();
+    await expect(tour(page)).toHaveCount(0);
+    await expect(page.locator('#pbl-project-overview')).toBeVisible();
+    await expect(page.locator('#pbl-project-overview button').last()).toBeDisabled();
+    // An HTTP view already exists; neither clicks nor Tab may reach the workspace
+    // while its independently delivered matching snapshot is still missing.
+    await loading.click({ position: { x: 10, y: 10 } });
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))).toBe(
+      true,
+    );
+    expect(fixture.commands).toEqual(['prepare']);
+    fixture.workbench.environmentId = fixture.view.environmentId!;
+    await fixture.publish();
+    await expect(loading).toHaveCount(0);
+    await expect(tour(page)).toHaveAttribute('data-step', 'progress');
+    await next(page).click();
+    await expect(tour(page)).toHaveAttribute('data-step', 'discussion');
+    await expect(page.locator('#pbl-project-overview')).toBeVisible();
+    await expect(page.locator('#pbl-project-overview button').last()).toBeDisabled();
+    await correctSpotlight(page, '[data-testid="pbl-assistant"]');
+    if (width === 390) {
+      const reading = page.getByTestId('pbl-project-start');
+      const bounds = (await reading.boundingBox())!;
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height - 25);
+      await page.mouse.wheel(0, 500);
+      await expect.poll(() => reading.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+      await expect(tour(page)).toHaveAttribute('data-step', 'discussion');
+    }
+    await page.screenshot({ path: testInfo.outputPath('overview-during-guide.png') });
+    expect(fixture.commands).toEqual(['prepare']);
+    await finish(page);
+    await expect(page.getByRole('button', { name: 'Start learning', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Start learning', exact: true }).click();
+    await expect.poll(() => fixture.commands).toEqual(['prepare', 'begin']);
+  });
+}
+
+test('dismisses transient workbench panels outside without discarding quiz choices', async ({
+  page,
+  learningEvents,
+}) => {
+  await project(page, learningEvents, { started: true, quiz: true });
+  const environment = page.locator('[data-pbl-tour="environment"]');
+  const progress = page.locator('[data-pbl-tour="progress"]');
+  const outside = page.getByTestId('pbl-v3-workspace').locator('header h2').first();
+  await environment.click();
+  await expect(environment.locator('..')).toHaveAttribute('open');
+  await outside.click();
+  await expect(environment.locator('..')).not.toHaveAttribute('open');
+  await progress.click();
+  await expect(progress.locator('..')).toHaveAttribute('open');
+  await outside.click();
+  await expect(progress.locator('..')).not.toHaveAttribute('open');
+  const toggle = page.locator('[data-pbl-tour="task-trigger"]');
+  await toggle.click();
+  const drawer = page.getByRole('region', { name: 'Current task details' });
+  await drawer.getByRole('radio').first().check();
+  await outside.click();
+  await expect(drawer).toHaveCount(0);
+  await toggle.click();
+  await expect(drawer.getByRole('radio').first()).toBeChecked();
+});
+
+test('shows acknowledged quiz submission and enables only changed answers for resubmission', async ({
+  page,
+  learningEvents,
+}) => {
+  const fixture = await project(page, learningEvents, {
+    started: true,
+    quiz: true,
+    application: false,
+  });
+  await page.locator('[data-pbl-tour="task-trigger"]').click();
+  const drawer = page.getByRole('region', { name: 'Current task details' });
+  await drawer.getByRole('radio').first().check();
+  await drawer.getByRole('button', { name: 'Submit answers', exact: true }).click();
+  // No acknowledged receipt yet: a request alone must not claim success.
+  await expect(drawer.getByRole('button', { name: 'Submitted', exact: true })).toHaveCount(0);
+  fixture.view.state.collected.greeting!.quiz = {
+    id: 'quiz-receipt',
+    attempt: 1,
+    passed: true,
+    score: 1,
+    total: 1,
+    wrong: [],
+    answers: [0],
+  };
+  fixture.view.actions = ['quiz', 'next'];
+  fixture.view.revision++;
+  await fixture.publish();
+  await expect(drawer.getByRole('button', { name: 'Submitted', exact: true })).toBeDisabled();
+  await expect(page.getByTestId('pbl-advance-bar')).toBeVisible();
+  await drawer.getByRole('radio').nth(1).check();
+  await expect(drawer.getByRole('button', { name: 'Submit changes', exact: true })).toBeEnabled();
+  await drawer.getByRole('radio').first().check();
+  await expect(drawer.getByRole('button', { name: 'Submitted', exact: true })).toBeDisabled();
+});

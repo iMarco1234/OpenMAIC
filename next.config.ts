@@ -4,17 +4,6 @@ import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 const nextConfig: NextConfig = {
   // Keep Next dev from creating or rewriting repository agent instructions.
   agentRules: false,
-  // Local-only deployment: allow opening the dev app over 127.0.0.1 / localhost /
-  // the LAN IP so Next.js does not block cross-origin loading of its own dev
-  // chunks (otherwise the shell loads but interactive features like "enter
-  // classroom" and "switch voice" stay dead). This version requires an array.
-  allowedDevOrigins: [
-    '127.0.0.1',
-    'localhost',
-    '192.168.5.32',
-    '127.0.0.1:3000',
-    'localhost:3000',
-  ],
   output: 'standalone',
   env: {
     INTERACTIVE_ASSET_BASE_URL:
@@ -25,6 +14,7 @@ const nextConfig: NextConfig = {
       'lib/server/agent-runtime/import-pptx-worker.mjs',
       'skills/openmaic/**',
       'skills/agent-runtime/**',
+      'skills/classroom/**',
       // Loaded through a runtime-only `import('undici')` (see the LLM
       // dispatcher in lib/ai/providers.ts and the Google proxy transport), so
       // the output tracer never sees it and standalone builds ship without it.
@@ -62,9 +52,13 @@ const nextConfig: NextConfig = {
     // egress cannot resolve their SDK in the shipped deployment.
     '@aws-sdk/client-s3',
     '@aws-sdk/s3-request-presigner',
+    // Native canvas backend for server-side PDF page rendering (DeepSeek OCR
+    // figure crops). Its platform binary is a `.node` file that cannot be
+    // bundled; it is loaded natively from node_modules instead.
+    '@napi-rs/canvas',
   ],
   experimental: {
-    proxyClientMaxBodySize: '500mb',
+    proxyClientMaxBodySize: '200mb',
   },
   async headers() {
     const extraAncestors = process.env.ALLOWED_FRAME_ANCESTORS?.trim();
