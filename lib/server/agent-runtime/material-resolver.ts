@@ -33,10 +33,7 @@ import {
   OwnerMaterialBytesUnavailableError,
   readOwnerMaterialBytes,
 } from '@/lib/server/materials/owner-material-bytes';
-import {
-  readOwnerMaterialText,
-  type OwnerMaterialText,
-} from '@/lib/server/materials/owner-material-text';
+import { readOwnerMaterialText } from '@/lib/server/materials/owner-material-text';
 
 import {
   getSessionMaterial,
@@ -201,7 +198,7 @@ export async function readResolvedMaterialText(
   sessionId: string,
   material: ResolvedMaterial,
   signal?: AbortSignal,
-): Promise<OwnerMaterialText | null> {
+): Promise<{ text: string; revision: string } | null> {
   if (material.origin === 'session') {
     const { record } = material;
     if (record.textAssetId === null) return null;

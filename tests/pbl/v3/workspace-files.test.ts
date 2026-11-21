@@ -50,16 +50,9 @@ describe('shared project source scope', () => {
     const sandbox = {
       assertWorkspaceIdle: vi.fn(),
       listFiles: async () => Object.keys(files).map((path) => ({ path, bytes: 1 })),
-      readTexts: vi.fn(async (_id: string, paths: readonly string[]) =>
-        Object.fromEntries(paths.map((path) => [path, files[path]])),
-      ),
+      readText: async (_id: string, path: string) => files[path],
     } as unknown as SandboxService;
     const first = await readFiles(sandbox, row, expanded);
-    expect(sandbox.readTexts).toHaveBeenCalledWith(
-      'environment',
-      ['PLAN.md', 'greeting.py', 'src/App.java'],
-      undefined,
-    );
     expect(Object.keys(first)).toEqual(['PLAN.md', 'greeting.py', 'src/App.java']);
     delete files['src/App.java'];
     expect(filesFingerprint(await readFiles(sandbox, row, expanded))).not.toBe(
@@ -75,9 +68,7 @@ describe('shared project source scope', () => {
         .mockResolvedValue(
           Array.from({ length: 257 }, (_, i) => ({ path: `src/${i}.py`, bytes: 1 })),
         ),
-      readTexts: vi.fn(async (_id: string, paths: readonly string[]) =>
-        Object.fromEntries(paths.map((path) => [path, 'a'.repeat(600000)])),
-      ),
+      readText: vi.fn().mockResolvedValue('a'.repeat(600000)),
     };
     await expect(
       projectFiles(sandbox as unknown as SandboxService, 'environment', expanded),

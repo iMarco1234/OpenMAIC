@@ -129,7 +129,6 @@ vi.mock('@/lib/server/agent-runtime/store', () => ({
 vi.mock('@/lib/server/pbl-v3/runner-tools', () => ({
   teachingRunnerConfig: vi.fn(async () => ({
     systemPrompt: 'Teaching test',
-    preloadMessages: () => [],
     tools: [],
     allowedToolNames: new Set(),
     thinkingConfig: { enabled: true, effort: 'low' },

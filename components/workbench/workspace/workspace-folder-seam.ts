@@ -1,4 +1,4 @@
-/** Folder integration for the workspace's server-backed course library (My courses). */
+/** Folder integration for the workspace rail's server-backed course tree. */
 export interface WorkspaceFolderAdapter {
   readonly create: (name: string) => Promise<void>;
   readonly rename: (folderId: string, name: string) => Promise<void>;

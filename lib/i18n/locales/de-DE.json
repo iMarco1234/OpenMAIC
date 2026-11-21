@@ -26,6 +26,7 @@
     "examplesLabel": "Beispielthemen",
     "examplePython": "Python von Grund auf lernen",
     "exampleFourier": "Fourier-Transformation mit anschaulichen Beispielen",
+    "desktopOnly": "Verwende für den Editor und Pro-Modus einen Computer.",
     "slogan": "Generatives Lernen im interaktiven Lernraum mit mehreren KI-Agenten",
     "greetingWithName": "Hallo, {{name}}"
   },
@@ -88,7 +89,6 @@
     "exportFailed": "Export fehlgeschlagen",
     "classroomZip": "Kurs-ZIP exportieren",
     "classroomZipDesc": "Kursstruktur + Mediendateien",
-    "viewerCopyHint": "Eine bearbeitbare Kopie? Mit „{{zip}}“ herunterladen und dann unter „{{courses}}“ über „{{importLabel}}“ importieren.",
     "html": "Als HTML exportieren",
     "htmlDesc": "Eine Offline-Datei, die von selbst abspielt",
     "htmlWithNarration": "Mit Sprecherton und Videos",
@@ -113,7 +113,6 @@
       "emptyClassroom": "Dieser Kurs enthält keine Szenen.",
       "unsupportedScene": "Diese Szene ist im Offline-Export nicht verfügbar.",
       "interactiveTitle": "Interaktive Szene",
-      "interactiveMoreBelow": "Weiter unten geht es weiter",
       "videoUnavailable": "Videos sind im Offline-Export nicht enthalten",
       "quizSubmit": "Absenden",
       "quizRetry": "Erneut versuchen",
@@ -247,9 +246,7 @@
       "toolCallingRequired": "Der Klassenzimmer-Chat benötigt ein Modell, das Tool-Aufrufe unterstützt. Wählen Sie unter Einstellungen → Kursmodell-Konfiguration ein solches Modell für „Klassenzimmer“ aus. Falls diese Einstellung administrativ verwaltet wird, wenden Sie sich an die Administration.",
       "geminiNativeRequired": "Für die Interaktion mit Gemini wird Google nativ benötigt. Fügen Sie Google (Preset google) unter Einstellungen → Modelldienste hinzu und wählen Sie es für „Klassenzimmer“ unter „Kursmodell-Konfiguration“. Bei verwalteter Konfiguration wenden Sie sich an die Administration.",
       "emptyAgentResponses": "Die Agenten haben leere Antworten zurückgegeben; die Diskussion wurde beendet. Versuche es erneut oder prüfe deine Modelleinstellungen.",
-      "streamInterrupted": "Der Stream wurde unerwartet beendet; die Diskussion konnte nicht abgeschlossen werden. Versuche es erneut.",
-      "teacherNoResponse": "Die Lehrkraft hat nicht geantwortet. Bitte versuchen Sie es erneut.",
-      "teacherIncomplete": "Die Lehrkraft konnte die Antwort nicht abschließen. Bitte versuchen Sie es erneut."
+      "streamInterrupted": "Der Stream wurde unerwartet beendet; die Diskussion konnte nicht abgeschlossen werden. Versuche es erneut."
     },
     "elementReference": {
       "whiteboardChanged": "Das referenzierte Whiteboard-Element wurde geändert oder ist nicht mehr verfügbar. Wählen Sie es erneut aus oder entfernen Sie die Referenz vor dem Senden.",
@@ -272,7 +269,6 @@
       "title": "Diese Interaktion konnte nicht ausgeführt werden",
       "dismiss": "Schließen"
     },
-    "interactiveMoreBelow": "Weiter unten geht es weiter",
     "tabs": {
       "lecture": "Notizen",
       "chat": "Chat"
@@ -349,27 +345,15 @@
     "confirmSwitchTitle": "Szene wechseln",
     "confirmSwitchMessage": "Ein Thema läuft gerade. Beim Wechseln der Szene wird das aktuelle Thema beendet. Möchtest du wirklich wechseln?",
     "generatingNextPage": "Die Szene wird generiert. Bitte warten...",
+    "courseComplete": "Kurs abgeschlossen",
     "fullscreen": "Vollbild",
     "exitFullscreen": "Vollbild beenden",
     "editCourse": "Kurs bearbeiten",
     "doneEditing": "Bearbeitung abschließen",
-    "editDisabledHint": "Diese Seite kann nicht bearbeitet werden — öffne eine Kursfolie, um sie zu bearbeiten.",
-    "editToggle": "Bearbeiten",
-    "openInWorkspace": "Im Arbeitsbereich öffnen",
-    "openInWorkspaceHint": "Im Arbeitsbereich öffnen, um im Gespräch an diesem Kurs weiterzuarbeiten",
-    "makeOwnCourse": "Eigenen Kurs erstellen",
-    "makeOwnCourseHint": "Im Arbeitsbereich einen eigenen Kurs erstellen",
-    "dock": {
-      "collapse": "Leiste einklappen",
-      "expand": "Leiste ausklappen",
-      "resize": "Leistenhöhe ändern"
-    },
-    "chatPanel": {
-      "expand": "Gesprächsbereich einblenden",
-      "collapse": "Gesprächsbereich ausblenden"
-    }
+    "proModeDisabledHint": "Diese Seite kann nicht bearbeitet werden — öffne eine Kursfolie, um sie im Pro-Modus zu bearbeiten."
   },
   "edit": {
+    "proMode": "Pro",
     "undo": "Rückgängig",
     "redo": "Wiederholen",
     "courseHistory": {
@@ -597,19 +581,7 @@
       "whiteboardLatex": "Formel",
       "whiteboardTable": "Tabelle",
       "action": "Aktion",
-      "discussion": "Diskussionsrunde",
-      "playVideo": "Video abspielen",
-      "whiteboardChart": "Diagramm",
-      "whiteboardLine": "Linie zeichnen",
-      "whiteboardClear": "Tafel leeren",
-      "whiteboardDelete": "Element entfernen",
-      "whiteboardClose": "Tafel schließen",
-      "whiteboardCode": "Codeblock",
-      "whiteboardEditCode": "Code bearbeiten",
-      "widgetHighlight": "Aktivität hervorheben",
-      "widgetSetState": "Aktivitätsstatus setzen",
-      "widgetAnnotation": "Aktivität annotieren",
-      "widgetReveal": "In Aktivität einblenden"
+      "discussion": "Diskussionsrunde"
     },
     "element": {
       "toolbar": "Elementwerkzeuge",
@@ -674,6 +646,12 @@
     "timeline": {
       "title": "Sprechertext",
       "regenAllTts": "Alle Vertonungen neu erstellen",
+      "voiceAll": "Alles vertonen",
+      "counts": "Sprechertexte: {{speech}} · Aktionen: {{cue}}",
+      "panLeft": "Nach links verschieben",
+      "panRight": "Nach rechts verschieben",
+      "collapseAxis": "Auf Achse einklappen",
+      "expandTrack": "Spur ausklappen",
       "emptyHint": "Ziehe Aktionen auf die Achse, um zu beginnen, oder lass den MAIC Agent einen Sprechertext erstellen.",
       "speechPlaceholder": "Sprechertext eingeben…",
       "reorder": "Zum Neuanordnen ziehen",
@@ -685,15 +663,13 @@
       "fieldElement": "Element",
       "fieldContent": "Inhalt",
       "addDiscussionExists": "Pro Szene ist nur eine Diskussionsrunde möglich",
+      "discussionTerminal": "ENDE",
       "discussionTerminalHint": "Eine Diskussionsrunde bleibt am Ende der Szene (eine pro Szene)",
-      "discussionTopicPlaceholder": "Erforderlich",
-      "discussionPromptPlaceholder": "Optional",
-      "discussionTopicLabel": "Diskussionsthema",
-      "discussionPromptLabel": "Anweisung",
+      "discussionTopicPlaceholder": "Diskussionsthema (erforderlich)",
+      "discussionPromptPlaceholder": "Anweisung (optional)",
       "discussionAgent": "Startrolle",
       "discussionAgentUnset": "Nicht festgelegt",
-      "addAction": "Aktion hinzufügen",
-      "fieldState": "Status"
+      "addAction": "Aktion hinzufügen"
     },
     "picker": {
       "title": "Aktion einfügen",
@@ -777,7 +753,8 @@
       "moveDown": "Nach unten",
       "removeFromClass": "Aus dem Kurs entfernen",
       "aiClassmates": "KI-Mitlernende · {{count}}",
-      "addRole": "Rolle hinzufügen"
+      "addRole": "Rolle hinzufügen",
+      "shortTitle": "Roster"
     },
     "elementRef": {
       "remove": "移除引用 {{label}}",
@@ -788,6 +765,21 @@
     "dock": {
       "elementRefHint": "Elementverweise – Elemente für die nächste Nachricht auswählen",
       "globalTools": "Globale Werkzeuge"
+    }
+  },
+  "classroomComplete": {
+    "title": "Kurs abgeschlossen",
+    "trailLabels": {
+      "slide": "Folien",
+      "quiz": "Quiz",
+      "interactive": "interaktive Inhalte",
+      "pbl": "Projekte"
+    },
+    "quizScoreLabel": "{{correct}} / {{total}} richtig",
+    "encouragement": {
+      "high": "Hervorragend — das sitzt.",
+      "mid": "Starke Leistung — weiter so.",
+      "low": "Ein guter Anfang — wiederhole den Stoff und versuche es erneut."
     }
   },
   "whiteboard": {
@@ -1101,7 +1093,6 @@
     "rename": "Umbenennen",
     "renamePlaceholder": "Kursnamen eingeben",
     "renameFailed": "Kurs konnte nicht umbenannt werden",
-    "saveRefused": "Deine Änderungen wurden nicht gespeichert: Du darfst diesen Kurs nicht bearbeiten.",
     "searchPlaceholder": "Kurse durchsuchen...",
     "searchAriaLabel": "Kurse durchsuchen",
     "clearSearch": "Suchfeld leeren",
@@ -1446,8 +1437,6 @@
     "providerMiniMaxTTS": "MiniMax TTS",
     "providerXiaomiTTS": "Xiaomi MiMo TTS",
     "providerXiaomiASR": "Xiaomi MiMo ASR",
-    "providerDeepSeekTTS": "DeepSeek TTS",
-    "providerDeepSeekASR": "DeepSeek ASR",
     "providerGoogleTTS": "Google Gemini TTS",
     "providerLemonadeTTS": "Lemonade TTS (Lokal)",
     "providerBrowserNativeTTS": "Browserintegrierte TTS",
@@ -1493,8 +1482,6 @@
     "qwenCloneUploadShort": "Hochladen",
     "qwenCloneRefAudioHint": "Use a clean 5–60 second voice sample (10–20 seconds recommended). Audio is converted to 24 kHz mono PCM WAV.",
     "qwenCloneMigrationHint": "Diese gespeicherte Stimme muss erneut geklont werden. Laden Sie das Referenzaudio in den Stimmeinstellungen hoch.",
-    "qwenCloneNeedsReclone": "Erneut klonen",
-    "qwenCloneRecloneRequired": "Diese gespeicherte Stimme ist mit dem aktuellen Klonmodell nicht kompatibel. Laden Sie ihr Referenzaudio erneut hoch, um sie neu zu klonen.",
     "qwenCloneSaved": "Qwen cloned voice registered and saved",
     "qwenCloneSaveFailed": "Failed to register the Qwen cloned voice",
     "qwenCloneUnsupported": "Recording is not supported in this browser; upload an audio file instead.",
@@ -1861,8 +1848,6 @@
       "capVideo": "Videogenerierung",
       "capWebSearch": "Websuche",
       "capWebFetch": "Webseiten abrufen",
-      "capAsr": "Spracherkennung",
-      "capDocument": "Dokumentanalyse",
       "saved": "Verbindungseinstellungen gespeichert",
       "stageInteractive": "Interaktiv",
       "stageSlide": "Kursfolien",
@@ -2193,10 +2178,6 @@
         "webFetch": {
           "name": "Webseiten abrufen",
           "desc": "Lässt den Agent in der Sitzung zugelassene Webseiten lesen."
-        },
-        "materialChapters": {
-          "name": "Kapitelerkennung",
-          "desc": "Erkennt Kapitel und Abschnitte in langen Dokumenten."
         }
       },
       "source": {
@@ -2212,9 +2193,7 @@
           "search": "Suche",
           "fetch": "Abruf",
           "image": "Bild",
-          "video": "Video",
-          "parse": "Analyse",
-          "chapters": "Kapitel"
+          "video": "Video"
         }
       },
       "empty": {
@@ -2249,9 +2228,7 @@
     "webFetchSettings": "Webseiten abrufen",
     "webFetchHint": "Wählen Sie, wie Webseiten gelesen werden. Gehostete Dienste erhalten nur öffentliche URLs, die in der Sitzung zugelassen sind. Ergebnisse bleiben nicht vertrauenswürdig; bei Fehlern wird der Dienst nicht gewechselt.",
     "webFetchApiKey": "API-Schlüssel",
-    "webFetchSharedKeyHint": "Dieser Schlüssel wird auch für den Chat mit diesem Anbieter verwendet. Änderungen oder das Entfernen wirken sich auf den Chat aus.",
-    "autoConfirmRecommended": "Empfohlene Antworten automatisch bestätigen",
-    "autoConfirmRecommendedDesc": "Wenn der Agent eine Frage mit einer empfohlenen Option stellt, wird sie nach einem kurzen Countdown gewählt, falls du nicht reagierst. Jede Interaktion stoppt den Countdown."
+    "webFetchSharedKeyHint": "Dieser Schlüssel wird auch für den Chat mit diesem Anbieter verwendet. Änderungen oder das Entfernen wirken sich auf den Chat aus."
   },
   "workspace": {
     "knowledgeBase": {
@@ -2287,11 +2264,6 @@
         "processing_interrupted": {
           "label": "Analyse nicht abgeschlossen",
           "description": "Die Analyse konnte nicht abgeschlossen werden. Sie können es später erneut versuchen."
-        },
-        "pages_failed": {
-          "label": "PDF-Seiten konnten nicht analysiert werden",
-          "description": "Die Analyse der PDF-Seiten {{firstPage}}–{{lastPage}} ist fehlgeschlagen. Dieses Material kann daher noch nicht gelesen werden. Versuche es später erneut.",
-          "descriptionWithoutCount": "Die Analyse einiger PDF-Seiten ist fehlgeschlagen. Dieses Material kann daher noch nicht gelesen werden. Versuche es später erneut."
         },
         "too_many_pages": {
           "label": "Zu viele Seiten",
@@ -2395,7 +2367,6 @@
     "sceneCount_one": "{{count}} 页",
     "sceneCount_other": "{{count}} 页",
     "courseLinkHint": "在右侧打开《{{name}}》",
-    "courseLinkOpen": "Öffnen",
     "courseLinkMore": "还有 {{count}} 节课堂",
     "courseMention": {
       "search": "Klassenzimmer und Materialien suchen",
@@ -2427,6 +2398,7 @@
     "heroSubtitle": "Share an idea and turn it into a learning journey people can step into",
     "newSession": "New chat",
     "sections": {
+      "courses": "Courses",
       "sessions": "Chats"
     },
     "coursesEmpty": "No courses yet",
@@ -2435,6 +2407,8 @@
     "loadFailed": "Couldn't load",
     "retry": "Retry",
     "untitledSession": "Untitled chat",
+    "pagePosition": "Page {{index}} of {{total}}",
+    "exitPro": "Exit Pro",
     "navAria": "Workspace navigation",
     "homeAria": "Back to home",
     "currentSession": "Current chat",
@@ -2443,7 +2417,7 @@
     "learningMode": "Lernen",
     "editingMode": "Bearbeiten",
     "editingUnavailableGenerating": "Während der Kurserstellung ist die Bearbeitung nicht verfügbar.",
-    "editGuide": "Bearbeitungshilfe",
+    "fullscreenLearning": "Im Vollbild lernen",
     "time": {
       "justNow": "Just now",
       "minutesAgo": "{{count}}m ago",
@@ -2456,10 +2430,11 @@
       "running": "Running",
       "succeeded": "Ready",
       "failed": "Needs attention",
-      "cancelled": "Stopped",
-      "awaitingAnswer": "Wartet auf deine Antwort"
+      "cancelled": "Stopped"
     },
     "backToWorkspace": "Back to workspace",
+    "searchPlaceholder": "Filter by name",
+    "searchAria": "Search {{section}}",
     "searchEmpty": "No matches",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
@@ -2472,8 +2447,6 @@
     "expandNavInto": "Expand navigation · {{section}}",
     "collapseChat": "Collapse conversation",
     "expandChat": "Conversation",
-    "talkAboutCourse": "Mit KI bearbeiten",
-    "talkAboutCourseHint": "Ein neues Gespräch über diesen Kurs beginnen",
     "collapseClassroom": "Collapse classroom",
     "expandClassroom": "Classroom",
     "readOnlyBadge": "Read-only",
@@ -2483,6 +2456,7 @@
     "coursePausedDesc": "Eine Seite konnte nicht generiert werden. Wiederholen Sie sie im Klassenraum; der Kurs öffnet sich hier, sobald die Generierung abgeschlossen ist.",
     "viewGenerationProgress": "Fortschritt ansehen",
     "openToRetry": "Zum Wiederholen öffnen",
+    "courseGeneratingRowHint": "Verfügbar, sobald die Generierung abgeschlossen ist",
     "noCourseTitle": "No course open",
     "noCourseHint": "Open one from a course link in the conversation, or pick one from the list on the left — the conversation stays put",
     "resizeChatAria": "Drag to resize the conversation pane",
@@ -2491,6 +2465,7 @@
     "autoSaved": "Gespeichert",
     "collapsedTitle": "Both panes are collapsed",
     "collapsedHint": "Use the tabs on the left to bring the conversation or the classroom back",
+    "moreUtilities": "More",
     "rowMore": "More actions for {{name}}",
     "folderDeleteHint": "Die Kurse darin wandern zurück auf die oberste Ebene. Nichts wird gelöscht.",
     "dropToUnfile": "Hier ablegen, um aus dem Ordner zu nehmen",
@@ -2504,181 +2479,11 @@
     "confirmDelete": "Confirm delete",
     "deleting": "Deleting…",
     "deleteFailed": "Couldn't delete. Please try again.",
+    "tabsAria": "Chats and courses",
     "courseTabsAria": "Open courses",
     "courseTabClose": "Close tab: {{name}}",
     "courseTabRunning": "Generating",
-    "foldersUnavailable": "Ordner sind in dieser Version nicht verfügbar",
-    "composer": {
-      "attach": "Attach material",
-      "mentionCourse": "引用课堂",
-      "mentionCourseOrMaterial": "Auf einen Kursraum oder ein Material der Wissensbasis verweisen",
-      "loadSkill": "加载 skill",
-      "skillMenuTitle": "选择课程设计技能",
-      "skillsLoading": "正在加载 skill…",
-      "noSkillsAvailable": "暂无可用 skill",
-      "userSkillsGroup": "我的 Skill",
-      "builtinSkillsGroup": "内置 Skill",
-      "skillsLoadFailed": "Skill 加载失败，点击重试",
-      "retrySkills": "重试",
-      "noSkillMatch": "没有匹配“{{query}}”的 Skill",
-      "launchPlaceholder": "Describe the learning experience you want to create",
-      "launchSend": "Start build"
-    },
-    "nav": {
-      "search": "Suchen",
-      "myCourses": "Meine Kurse"
-    },
-    "search": {
-      "placeholder": "Chats, Kurse und Materialien durchsuchen",
-      "recentChats": "Letzte Chats",
-      "recentCourses": "Letzte Kurse",
-      "courses": "Kurse",
-      "materials": "Materialien",
-      "actions": "Schnellaktionen",
-      "searching": "Suche läuft…",
-      "empty": "Keine Treffer für „{{query}}“",
-      "materialsFailed": "Die Wissensdatenbank konnte nicht durchsucht werden",
-      "themeAction": "Design: {{name}}",
-      "languageAction": "Sprache: {{name}}"
-    },
-    "account": {
-      "signIn": "Anmelden",
-      "menu": "Konto und Einstellungen",
-      "profileSaved": "Gespeichert",
-      "language": "Sprache",
-      "about": "Über OpenMAIC",
-      "aboutBody": "Eine Open-Source-Plattform, die jedes Thema in ein interaktives Klassenzimmer mit KI-Lehrkräften und -Mitschülern verwandelt. Veröffentlicht unter der MIT-Lizenz.",
-      "viewOnGithub": "Auf GitHub ansehen",
-      "docs": "Dokumentation",
-      "signOut": "Abmelden",
-      "onboarding": "Erste Schritte"
-    },
-    "coursesPage": {
-      "searchPlaceholder": "Meine Kurse durchsuchen",
-      "results": "Suchergebnisse",
-      "allCourses": "Alle Kurse",
-      "emptyHint": "Beschreibe auf der Startseite ein Thema, dann erscheint hier dein erster Kurs.",
-      "makeCourse": "Kurs erstellen",
-      "pin": "Oben anheften",
-      "unpin": "Lösen",
-      "pinned": "Angeheftet"
-    },
-    "fullscreen": {
-      "expand": "Vollbild",
-      "collapse": "Vollbild beenden (Esc)"
-    },
-    "onboarding": {
-      "paneTitle": "Lernen oder bearbeiten",
-      "paneLearn": "Lernen: Die KI-Lehrkraft führt durch den Kurs, frag jederzeit.",
-      "paneEdit": "Bearbeiten: Seiten direkt ändern.",
-      "paneChat": "Oder bitte im Chat, z. B. „mach Seite 2 einfacher“.",
-      "gotIt": "Verstanden"
-    },
-    "tour": {
-      "skip": "Überspringen",
-      "prev": "Zurück",
-      "next": "Weiter",
-      "done": "Selbst eingeben",
-      "count": "{{index}} / {{total}}",
-      "openGuide": "Probekurs starten",
-      "welcome": {
-        "title": "Willkommen bei OpenMAIC",
-        "body": "Sag, was du lernen willst, und OpenMAIC macht daraus einen interaktiven Kurs mit KI-Lehrkraft und Mitlernenden."
-      },
-      "start": {
-        "title": "Hier geht es los",
-        "body": "„Neuer Chat“ startet einen neuen Kurs. Suche (⌘K) findet Kurse, Chats und Materialien."
-      },
-      "courses": {
-        "title": "Der Probekurs",
-        "body": "Auch dieser 5-Minuten-Kurs ist mit OpenMAIC gemacht. Öffne ihn und sieh, wo Unterricht stattfindet."
-      },
-      "library": {
-        "title": "Wissensdatenbank",
-        "body": "Handouts und PDFs einmal hochladen und in jedem Kurs verwenden."
-      },
-      "conversations": {
-        "title": "Chats",
-        "body": "Jeder Kurs entsteht in einem Chat. Um ihn zu ändern, frag in diesem Chat."
-      },
-      "mode": {
-        "title": "Lernen oder bearbeiten",
-        "body": "Lernen: Kurs mit der KI-Lehrkraft. Bearbeiten: Seite für Seite ändern."
-      },
-      "dock": {
-        "title": "Der Unterricht",
-        "body": "Abspielen, blättern, jederzeit die KI-Lehrkraft fragen; Mitlernende diskutieren mit."
-      },
-      "chat": {
-        "title": "Per Chat ändern",
-        "body": "Sag im Chat daneben einfach „mach Seite 2 einfacher“, und die KI ändert den Kurs."
-      },
-      "account": {
-        "title": "Konto und Einstellungen",
-        "body": "Profil, Einstellungen, Sprache und Design – und diese Einführung zum erneuten Ansehen."
-      },
-      "try": {
-        "title": "Jetzt ausprobieren",
-        "body": "Gib ein Thema ein oder wähle ein Beispiel, um sofort zu starten.",
-        "attach": "Material: Handout hochladen und den Kurs darauf aufbauen",
-        "mention": "Verweis: @ einen Kurs oder ein Material der Wissensdatenbank",
-        "skill": "Skills: einen Unterrichtsstil wählen, z. B. Deep Interactive"
-      },
-      "examples": {
-        "sky": {
-          "label": "Warum ist der Himmel blau?",
-          "prompt": "Warum ist der Himmel blau? Erkläre es mit Dingen aus dem Alltag"
-        },
-        "interest": {
-          "label": "Wie Zinseszins funktioniert",
-          "prompt": "Erkläre mit Alltagsbeispielen, wie Zinseszins funktioniert"
-        },
-        "teach": {
-          "label": "Unterrichten: Pythagoras, Klasse 8",
-          "prompt": "Eine Stunde zum Satz des Pythagoras für die 8. Klasse, mit einem kurzen Quiz am Ende"
-        }
-      },
-      "coursesNav": {
-        "title": "Meine Kurse",
-        "body": "Hier liegen deine fertigen Kurse. Klick einmal darauf."
-      },
-      "openLook": "Öffnen",
-      "edit": {
-        "canvas": {
-          "title": "Die Seite",
-          "body": "Klick auf Text, Bilder oder Formen, um sie zu ändern; ziehen zum Verschieben oder Skalieren."
-        },
-        "pages": {
-          "title": "Seiten",
-          "body": "Hier die Seitenliste öffnen: Seiten hinzufügen, per Ziehen umsortieren, löschen."
-        },
-        "bar": {
-          "title": "Die Steuerleiste",
-          "body": "Aktion hinzufügen, Sprechertext vertonen, blättern und Seiten hinzufügen, Lehrkraft und Mitlernende festlegen; rechts Elemente für die KI markieren."
-        },
-        "timeline": {
-          "title": "Die Aktionsspur",
-          "body": "Jede Karte ist eine Aktion: Erklärung, Spotlight, Diskussion. Ziehen zum Umsortieren, Klicken zum Bearbeiten."
-        },
-        "dock": {
-          "title": "Das Dock",
-          "body": "Am oberen Rand ziehen zum Anpassen der Höhe, oder einklappen für mehr Platz."
-        },
-        "learn": {
-          "title": "Vorschau",
-          "body": "Wechsle zurück zu „Lernen“, um den Kurs wie Lernende zu sehen."
-        },
-        "chat": {
-          "title": "Die KI fragen",
-          "body": "Lieber nicht von Hand? Sag es im Chat, z. B. „füge Seite 2 eine Übung hinzu“."
-        }
-      },
-      "editDone": "Bearbeiten"
-    },
-    "mobile": {
-      "openMenu": "Navigation öffnen",
-      "closeMenu": "Navigation schließen"
-    }
+    "foldersUnavailable": "Ordner sind in dieser Version nicht verfügbar"
   },
   "profile": {
     "title": "Profil",
@@ -2710,6 +2515,25 @@
     "placeholder": "Zugangscode",
     "error": "Ungültiger Zugangscode. Bitte versuche es erneut."
   },
+  "proMode": {
+    "attach": "Attach material",
+    "mentionCourse": "引用课堂",
+    "loadSkill": "加载 skill",
+    "skillMenuTitle": "选择课程设计技能",
+    "skillsLoading": "正在加载 skill…",
+    "noSkillsAvailable": "暂无可用 skill",
+    "userSkillsGroup": "我的 Skill",
+    "builtinSkillsGroup": "内置 Skill",
+    "skillsLoadFailed": "Skill 加载失败，点击重试",
+    "retrySkills": "重试",
+    "noSkillMatch": "没有匹配“{{query}}”的 Skill",
+    "badgeAria": "Pro mode",
+    "badgeEnter": "Pro mode",
+    "badgeExit": "Back to classic",
+    "launchPlaceholder": "Describe the learning experience you want to create",
+    "launchSend": "Start build",
+    "mentionCourseOrMaterial": "Auf einen Kursraum oder ein Material der Wissensbasis verweisen"
+  },
   "workbench": {
     "tool": {
       "label": {
@@ -2721,23 +2545,12 @@
       }
     }
   },
-  "classroomEnd": {
-    "close": "Zurück zur letzten Seite",
-    "learned": "{{count}} Seiten geschafft",
-    "result": "{{correct}} / {{total}} richtig",
-    "actions": {
-      "reviewWrong": "Fehler ansehen",
-      "doQuiz": "Zum Quiz",
-      "restart": "Neu beginnen"
-    }
-  },
   "sandbox": {
     "errors": {
       "learningManaged": "Dieser Arbeitsbereich gehört zu einem Lernprojekt. Verwenden Sie die Bedienelemente des Lernarbeitsbereichs.",
       "sourcePath": "Diese Datei gehört nicht zu den Quelldateien des Projekts.",
       "sourceCount": "Lernprojekte unterstützen höchstens 256 Quelldateien.",
       "sourceSize": "Der Quellinhalt des Projekts darf insgesamt 1 MiB nicht überschreiten.",
-      "commandSize": "Der erzeugte Build- oder Testbefehl ist zu groß für die Sandbox.",
       "teachingContextSize": "Der Lernkontext ist zu lang. Kürzen Sie PLAN.md oder die Überprüfungsfrage und versuchen Sie es erneut.",
       "commandActive": "Beenden Sie laufende Befehle und rufen Sie deren Ergebnisse ab, bevor Sie einen Arbeitsbereich-Snapshot lesen oder speichern.",
       "terminalActive": "Schließen Sie die Terminals, bevor Sie einen Arbeitsbereich-Snapshot lesen oder speichern.",
@@ -2933,9 +2746,6 @@
     "message": "Your message",
     "send": "Send",
     "submitQuiz": "Submit answers",
-    "submitting": "Wird gesendet…",
-    "submitted": "Gesendet",
-    "resubmit": "Änderungen senden",
     "quizPassed": "Quiz bestanden: {{score}}/{{total}} richtig. Du kannst fortfahren.",
     "quizRetry": "{{score}}/{{total}} richtig. Prüfe deine Antworten und versuche es erneut.",
     "quizCorrect": "Letzte Abgabe: richtig",
@@ -3047,40 +2857,7 @@
       "file-edit": "File edit",
       "workspace-run": "Workspace run"
     },
-    "overview": {
-      "startLearning": "Lernen starten",
-      "title": "Projektübersicht",
-      "expand": "Aufklappen",
-      "collapse": "Einklappen",
-      "projectGoal": "Projektziel",
-      "finishedWork": "Ihre fertige Anwendung",
-      "roadmap": "Projektübersicht",
-      "goalAndResult": "Ziel und Ergebnis",
-      "goal": "Ziel",
-      "result": "Ergebnis",
-      "eachStage": "Ablauf jeder Phase",
-      "yourRole": "Sie entscheiden und prüfen; KI hilft beim Planen und Programmieren.",
-      "preview": "Probieren Sie die Anwendung in der Vorschau aus und prüfen Sie das Ergebnis.",
-      "advance": "Die violette Schaltfläche über dem Eingabefeld erscheint erst, wenn der aktuelle Schritt zum Fortfahren bereit ist. Klicke dann darauf, um weiterzumachen.",
-      "startBlocked": {
-        "guide": "Gehe die Anleitung zum Arbeitsbereich bis zum Ende durch oder schließe sie, um mit dem Lernen zu beginnen.",
-        "connecting": "Live-Aktualisierungen werden verbunden, bevor du beginnen kannst…",
-        "retrying": "Live-Aktualisierungen werden erneut verbunden. Warte vor dem Start, bis die Verbindung wiederhergestellt ist.",
-        "unavailable": "Live-Aktualisierungen sind nicht verfügbar. Lade die Seite neu, um vor dem Start die Verbindung wiederherzustellen.",
-        "pending": "Eine Aktion wird ausgeführt. Warte, bis sie abgeschlossen ist, bevor du beginnst.",
-        "busy": "Der Assistent antwortet noch. Warte auf das Ende der Antwort, bevor du beginnst.",
-        "environment": "Warte vor dem Start, bis die Lernumgebung bereit ist. Falls die Vorbereitung fehlgeschlagen ist, versuche es oben erneut.",
-        "unsaved": "Die Projektdateien enthalten ungespeicherte Änderungen. Speichere oder verwirf sie, bevor du beginnst.",
-        "preparing": "Der Arbeitsbereich wird vorbereitet. Bitte warte, bevor du beginnst."
-      },
-      "singleFlow": "Projektablauf",
-      "concepts": "Technische Konzepte",
-      "deliverables": "Funktionale Ergebnisse"
-    },
     "journey": {
-      "currentMilestone": "Aktueller Meilenstein",
-      "milestoneGoal": "Ziel:",
-      "milestoneResult": "Ergebnis:",
       "completionHandoff": "This step is complete. See the task bar at the bottom of the Learning Assistant pane for the next action.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3122,7 +2899,6 @@
       "notReflected": "Reflection not yet recorded",
       "taskDetails": "Current task details",
       "closeDetails": "Close task details",
-      "reviewDetails": "Details ansehen",
       "milestoneSteps": "Milestone learning steps",
       "enterStep": "Continue to {{step}}",
       "enterMilestone": "Nächste Phase",
@@ -3212,14 +2988,13 @@
       "readOnly": "Read-only",
       "saved": "Gespeichert",
       "saveFailed": "Speichern fehlgeschlagen · Erneut versuchen",
-      "draftRetained": "Änderungen in diesem Browser behalten",
-      "retryRead": "Lesen erneut versuchen"
+      "draftRetained": "Änderungen in diesem Browser behalten"
     },
     "inputBlocked": {
       "pending": "Processing your action. Your draft is kept.",
       "busy": "The assistant is replying. Stop the reply before sending another message.",
       "environment": "The project environment is not ready. If setup failed, retry above; your draft is kept.",
-      "unsaved": "Die Projektdateien enthalten ungespeicherte Änderungen. Speichere oder verwirf sie vor dem Senden; deine Nachricht bleibt hier.",
+      "unsaved": "Saving project files. You can send once saving finishes; your message stays here.",
       "opening": "The assistant has not opened this step yet. Retry the opening; your draft is kept."
     },
     "recoverEnvironment": "Restore learning environment",
@@ -3311,10 +3086,10 @@
       "discussion": "This step is for discussing decisions. File editing opens during planning and coding.",
       "quiz": "This is the understanding quiz. Project files are read-only.",
       "recap": "This is the reflection step. Project files are read-only.",
-      "assessment": "This is the test step. Files are read-only until a failure opens repair.",
+      "assessment": "This is the test step. Files are read-only; a recorded failure opens code repair.",
       "stage": "Project files are read-only in this step.",
       "planOnly": "Planning allows edits to PLAN.md only. Source files are read-only.",
-      "planLocked": "PLAN.md is approved and read-only during coding.",
+      "planLocked": "PLAN.md is approved and read-only during coding or test repair.",
       "planEditable": "You can edit PLAN.md. Changes are saved automatically.",
       "codeEditable": "You can edit source files. Changes are saved automatically.",
       "stale": "The environment or file changed. Your draft is kept; copy it or reload before editing.",
@@ -3417,8 +3192,6 @@
       "waiting": "Die Anleitung ist verfügbar, sobald die Lernumgebung bereit ist.",
       "loading": "Arbeitsbereich wird geladen",
       "loadingDetail": "Die Lernumgebung wird verbunden und Projektdateien werden vorbereitet. Bitte warten.",
-      "loadingSlowDetail": "Die Vorbereitung dauert länger. Sie können zur Projekteinführung zurückkehren; die bereits gestartete Einrichtung läuft im Hintergrund weiter.",
-      "loadingReturn": "Zurück zur Projekteinführung",
       "steps": {
         "progress": {
           "title": "Fortschritt und aktuelle Aufgabe ansehen",

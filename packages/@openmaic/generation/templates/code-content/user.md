@@ -26,11 +26,7 @@ Create a code playground widget for: {{title}}
 
 {{hints}}
 
-{{#if additionalRequirements}}## Additional Design Requirements
-
-{{additionalRequirements}}
-
-{{/if}}## Course Language
+## Course Language
 
 {{languageDirective}}
 

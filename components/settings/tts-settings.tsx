@@ -361,9 +361,7 @@ export function TTSSettings({ view, apply, entry }: ServicePanelProps) {
 
       {/* The voices a user makes: for the workspace's narration service. */}
       {isVoxCPM && use.inUse && <VoxCPMVoiceManager />}
-      {providerId === 'qwen-tts' && use.inUse && (
-        <QwenVoiceCloneManager cloneTarget={entry.provider?.cloneTarget} />
-      )}
+      {providerId === 'qwen-tts' && use.inUse && <QwenVoiceCloneManager />}
     </div>
   );
 }

@@ -22,10 +22,7 @@
     "waiting": "正在處理",
     "emptyTitle": "開始一個新對話",
     "emptyHint": "描述你想做的變更，或用 @ 指一堂課",
-    "copyReply": "複製 Agent 回覆",
-    "queued": "正在排隊，輪到後會自動開始",
-    "queuedPlaceholder": "排隊中，可以先補充要求，Enter 送出",
-    "cancelQueued": "取消排隊"
+    "copyReply": "複製 Agent 回覆"
   },
   "question": {
     "waiting": "等你回答",
@@ -37,16 +34,10 @@
     "placeholder": "寫下你的回答",
     "confirm": "確認",
     "submit": "送出",
-    "dismiss": "收起",
+    "dismiss": "放棄",
     "inFormBelow": "在下方表單裡回答",
     "inPreview": "在右側預覽中回答",
-    "multiAnswerSeparator": "、",
-    "recommended": "推薦",
-    "autoConfirm": "自動確認",
-    "autoConfirmed": "已自動選擇推薦項，隨時可以修改",
-    "showDetails": "展開",
-    "hideDetails": "收起",
-    "orAnswerInChat": "也可以直接在對話裡回答"
+    "multiAnswerSeparator": "、"
   },
   "material": {
     "maxSelected": "一次最多選擇 {{count}} 個材料",
@@ -57,9 +48,7 @@
     "fileTooLargeWithLimit": "檔案過大，請選擇不超過 {{limit}}MB 的檔案。",
     "unsupportedType": "不支援此檔案類型，請選擇受支援的檔案。",
     "quotaExceeded": "已達到材料上傳限額。",
-    "storageFull": "儲存空間已達上限，無法上傳這份資料。",
-    "uploadFailedShort": "上傳失敗",
-    "retryFailed": "無法重新解析，請稍後再試。"
+    "storageFull": "儲存空間已達上限，無法上傳這份資料。"
   },
   "skill": {
     "listFailed": "Skill 清單載入失敗",
@@ -125,10 +114,7 @@
     "pageCaption": "第 {{order}} 頁 · {{title}}",
     "skills": "已裝備的技能",
     "resting": "課程會出現在這裡",
-    "restingDesc": "在對話裡繼續；生成課程後會在這個分頁開啟。",
-    "queuedEyebrow": "排隊中",
-    "queued": "正在排隊",
-    "queuedDesc": "前面還有任務在進行，輪到後會自動開始。"
+    "restingDesc": "在對話裡繼續；生成課程後會在這個分頁開啟。"
   },
   "thinking": {
     "active": "思考中…",
@@ -143,8 +129,6 @@
     "steerQueued": "agent 會在目前這一步做完後回應你",
     "runFailed": "本輪生成失敗",
     "retryHint": "可以再說一句讓它重試",
-    "contextLengthLimit": "您已達到此對話的長度上限，可以開始新聊天以繼續對話。",
-    "contextBudgetInvalid": "目前模型的上下文預算設定異常，本輪已停止。",
     "stopped": "本輪生成已停止",
     "workerInterrupted": "被 worker 重啟打斷，這次呼叫沒有產生結果；agent 會在新一次嘗試裡按需重發。",
     "userStopped": "已被停止打斷，這次呼叫沒有產生結果。"
@@ -155,7 +139,9 @@
     "listSeparator": "、",
     "group": {
       "tools": "{{count}} 個工具呼叫",
-      "failed": "{{count}} 個失敗",
+      "skills": "{{count}} 個 skill",
+      "running": "執行中",
+      "error": "有錯誤",
       "done": "已完成"
     },
     "section": {

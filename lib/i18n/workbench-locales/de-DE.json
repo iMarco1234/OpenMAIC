@@ -34,16 +34,10 @@
     "placeholder": "Schreibe deine Antwort",
     "confirm": "Bestätigen",
     "submit": "Absenden",
-    "dismiss": "Einklappen",
+    "dismiss": "Verwerfen",
     "inFormBelow": "Antworte im Formular unten",
     "inPreview": "In der Vorschau beantworten",
-    "multiAnswerSeparator": ", ",
-    "recommended": "Empfohlen",
-    "autoConfirm": "Automatisch bestätigen",
-    "autoConfirmed": "Empfohlene Option automatisch gewählt – jederzeit änderbar",
-    "showDetails": "Mehr anzeigen",
-    "hideDetails": "Weniger anzeigen",
-    "orAnswerInChat": "Du kannst auch direkt im Chat antworten"
+    "multiAnswerSeparator": ", "
   },
   "material": {
     "maxSelected": "Du kannst höchstens {{count}} Materialien gleichzeitig auswählen",
@@ -54,9 +48,7 @@
     "fileTooLargeWithLimit": "Die Datei ist zu groß. Wähle eine Datei mit höchstens {{limit}} MB aus.",
     "unsupportedType": "Dieser Dateityp wird nicht unterstützt. Wähle eine unterstützte Datei aus.",
     "quotaExceeded": "Upload-Limit für Materialien erreicht.",
-    "storageFull": "Der Speicherplatz ist voll. Dieses Material konnte nicht hochgeladen werden.",
-    "uploadFailedShort": "Upload fehlgeschlagen",
-    "retryFailed": "Die Analyse konnte nicht neu gestartet werden. Bitte versuche es erneut."
+    "storageFull": "Der Speicherplatz ist voll. Dieses Material konnte nicht hochgeladen werden."
   },
   "skill": {
     "listFailed": "Die Skill-Liste konnte nicht geladen werden",
@@ -137,8 +129,6 @@
     "steerQueued": "Der Agent antwortet, sobald der aktuelle Schritt fertig ist",
     "runFailed": "Dieser Aufbau ist fehlgeschlagen",
     "retryHint": "Sende noch eine Nachricht, um es erneut zu versuchen",
-    "contextLengthLimit": "Diese Unterhaltung hat ihre maximale Länge erreicht. Starte einen neuen Chat, um weiterzumachen.",
-    "contextBudgetInvalid": "Das Kontextbudget des aktuellen Modells ist falsch konfiguriert. Dieser Durchlauf wurde gestoppt.",
     "stopped": "Dieser Aufbau wurde gestoppt",
     "workerInterrupted": "Durch einen Worker-Neustart unterbrochen. Dieser Aufruf hat kein Ergebnis geliefert; der Agent wiederholt ihn bei Bedarf.",
     "userStopped": "Durch Stoppen unterbrochen. Dieser Aufruf hat kein Ergebnis geliefert."
@@ -149,7 +139,9 @@
     "listSeparator": ", ",
     "group": {
       "tools": "{{count}} Tool-Aufrufe",
-      "failed": "{{count}} fehlgeschlagen",
+      "skills": "{{count}} Skills",
+      "running": "Läuft",
+      "error": "Mit Fehlern",
       "done": "Abgeschlossen"
     },
     "section": {

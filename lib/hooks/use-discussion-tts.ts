@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useTTSSelection } from '@/lib/audio/use-tts-selection';
 import { slotTTSProvidersConfig } from '@/lib/audio/tts-selection';
 import { useBrowserTTS } from '@/lib/hooks/use-browser-tts';
-import { useBrowserVoices } from '@/lib/audio/use-browser-voices';
 import {
   resolveAgentVoice,
   resolveNarratorVoiceBinding,
@@ -70,8 +69,8 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
   const ttsVolume = useSettingsStore((s) => s.ttsVolume);
   const playbackSpeed = useSettingsStore((s) => s.playbackSpeed);
-  const playbackSettingsRef = useRef({ playbackSpeed, ttsMuted, ttsVolume, ttsSpeed, locale });
-  playbackSettingsRef.current = { playbackSpeed, ttsMuted, ttsVolume, ttsSpeed, locale };
+  const playbackSettingsRef = useRef({ playbackSpeed, ttsMuted, ttsVolume });
+  playbackSettingsRef.current = { playbackSpeed, ttsMuted, ttsVolume };
   // Global lecture voice — used as fallback for teacher agent
   const globalTtsProviderId = (ttsSelectionValue?.providerId ??
     'browser-native-tts') as TTSProviderId;
@@ -103,39 +102,26 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
   const processQueueRef = useRef<() => void>(() => {});
   const agentBindingKeysRef = useRef(new Map<string, string>());
 
-  /** The browser line is over: spoken to the end, or never started. */
-  const finishBrowserLine = useCallback(() => {
-    if (currentProviderRef.current !== 'browser-native-tts' || !isPlayingRef.current) return;
-    currentItemRef.current = null;
-    currentProviderRef.current = null;
-    isPlayingRef.current = false;
-    segmentDoneCounterRef.current++;
-    onAudioStateChangeRef.current?.(null, 'idle');
-    // Don't advance queue while paused — resume() will kick-start it
-    if (!pausedRef.current) {
-      processQueueRef.current();
-    }
-  }, []);
-
   const {
     speak: browserSpeak,
     pause: browserPause,
     resume: browserResume,
     cancel: browserCancel,
   } = useBrowserTTS({
-    // Same speed, volume and mute as server audio in the discussion and as
-    // browser speech in the lecture; read per sentence, so a change applies
-    // from the next sentence.
-    getSettings: () => {
-      const settings = playbackSettingsRef.current;
-      return {
-        locale: settings.locale,
-        rate: settings.ttsSpeed * settings.playbackSpeed,
-        volume: settings.ttsVolume,
-        muted: settings.ttsMuted,
-      };
+    rate: ttsSpeed,
+    lang: locale,
+    onEnd: () => {
+      if (currentProviderRef.current !== 'browser-native-tts' || !isPlayingRef.current) return;
+      currentItemRef.current = null;
+      currentProviderRef.current = null;
+      isPlayingRef.current = false;
+      segmentDoneCounterRef.current++;
+      onAudioStateChangeRef.current?.(null, 'idle');
+      // Don't advance queue while paused — resume() will kick-start it
+      if (!pausedRef.current) {
+        processQueueRef.current();
+      }
     },
-    onEnd: finishBrowserLine,
   });
   const browserCancelRef = useRef(browserCancel);
   browserCancelRef.current = browserCancel;
@@ -156,7 +142,14 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
 
   // Browser-native voices (dynamic, client-only) — same source the AgentBar
   // picker uses, so discussion resolution and the picker stay in sync.
-  const browserVoices = useBrowserVoices();
+  const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const load = () => setBrowserVoices(window.speechSynthesis.getVoices());
+    load();
+    window.speechSynthesis.addEventListener('voiceschanged', load);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
+  }, []);
 
   const resolveVoiceForAgent = useCallback(
     (agentId: string | null): ResolvedVoice | null => {
@@ -325,10 +318,7 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
     if (item.providerId === 'browser-native-tts') {
       currentProviderRef.current = item.providerId;
       onAudioStateChangeRef.current?.(item.agentId, 'playing');
-      void browserSpeakRef.current(item.text, item.voiceId).then((started) => {
-        // Nothing will be spoken (e.g. no speech support): the line is over.
-        if (!started && currentItemRef.current === item) finishBrowserLine();
-      });
+      browserSpeakRef.current(item.text, item.voiceId);
       prefetchNextRef.current();
       return;
     }
@@ -445,7 +435,7 @@ export function useDiscussionTTS({ enabled, agents, onAudioStateChange }: Discus
         queueMicrotask(() => processQueueRef.current());
       }
     }
-  }, [enabled, t, ttsMuted, generateAudio, finishBrowserLine]);
+  }, [enabled, t, ttsMuted, generateAudio]);
 
   processQueueRef.current = processQueue;
 

@@ -10,8 +10,6 @@ interface InsertionZoneProps {
   readonly slideLabel: string;
   readonly quizLabel: string;
   readonly onInsert: (type: EditableSceneType) => void;
-  /** Above the first page: half the height, so that page starts where playback's does. */
-  readonly leading?: boolean;
 }
 
 /**
@@ -23,13 +21,7 @@ interface InsertionZoneProps {
  * on its own z-layer with a solid background + soft drop shadow so it
  * clearly floats above any adjacent violet ring.
  */
-export function InsertionZone({
-  label,
-  slideLabel,
-  quizLabel,
-  onInsert,
-  leading = false,
-}: InsertionZoneProps) {
+export function InsertionZone({ label, slideLabel, quizLabel, onInsert }: InsertionZoneProps) {
   // `z-20` lifts the whole zone above adjacent `Reorder.Item` siblings.
   // Without this, the next-in-DOM-order ThumbItem (which has a `transform`
   // via motion's Reorder, creating its own stacking context) paints on
@@ -37,12 +29,7 @@ export function InsertionZone({
   // any z-index applied inside the InsertionZone itself.
   return (
     <Popover>
-      <div
-        className={cn(
-          'group/insert relative isolate z-20 cursor-pointer overflow-visible',
-          leading ? 'h-1' : 'h-2',
-        )}
-      >
+      <div className="group/insert relative isolate z-20 h-2 cursor-pointer overflow-visible">
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -57,9 +44,7 @@ export function InsertionZone({
               className={cn(
                 // Anchored at the right edge of the gap, vertically centered.
                 // z-30 lifts it above the adjacent active tile's ring (z-default).
-                'pointer-events-none absolute right-2 z-30',
-                // At the list's top edge a centred badge would be clipped by the scroller.
-                leading ? 'top-0' : 'top-1/2 -translate-y-1/2',
+                'pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 z-30',
                 'inline-flex h-5 w-5 items-center justify-center rounded-full',
                 // Solid background + ring + shadow gives it real visual
                 // elevation against the neighbouring violet ring zones.
@@ -100,7 +85,7 @@ export function InsertionZone({
   );
 }
 
-export function SceneTypeChoice({
+function SceneTypeChoice({
   type,
   label,
   Icon,

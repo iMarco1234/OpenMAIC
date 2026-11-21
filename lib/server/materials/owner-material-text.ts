@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import type { MaterialChapter } from '@/lib/types/material-chapters';
 import type { OwnerMaterialExtraction } from '@/lib/persistence/owner-materials';
 import { readMaterialExtractionResult } from './extraction';
 /**
@@ -41,22 +40,14 @@ import { resolveDerivativeRefsAsync } from '@/lib/server/material-extraction/doc
 export interface OwnerMaterialText {
   text: string;
   revision: string;
-  chapters?: MaterialChapter[];
-  pageCount?: number;
 }
-
-type TextResult = Pick<
-  OwnerExtractionResult,
-  'revision' | 'text' | 'derivatives' | 'chapters' | 'chapterPageCount'
-> &
-  Partial<Pick<OwnerExtractionResult, 'stats'>>;
 
 /** What the caller read of the source: its id, its owner then, and its result then. */
 export interface OwnerMaterialTextLocation {
   id: string;
   extraction?: OwnerMaterialExtraction | null;
   ownerId: string;
-  extractionResult: TextResult | null;
+  extractionResult: Pick<OwnerExtractionResult, 'revision' | 'text' | 'derivatives'> | null;
 }
 
 async function provider() {
@@ -69,7 +60,7 @@ async function provider() {
  */
 async function textOf(
   bytes: Uint8Array,
-  result: TextResult,
+  result: Pick<OwnerExtractionResult, 'revision' | 'text' | 'derivatives'>,
   ownerId: string,
   byteRevision: number,
   signal?: AbortSignal,
@@ -84,14 +75,6 @@ async function textOf(
       signal,
     ),
     revision: result.revision,
-    ...(result.chapters?.length
-      ? {
-          chapters: result.chapters,
-          pageCount:
-            result.chapterPageCount ??
-            (typeof result.stats?.pages === 'number' ? result.stats.pages : undefined),
-        }
-      : {}),
   };
 }
 
@@ -139,7 +122,7 @@ class FencedTextReadFailed extends Error {}
 
 interface ReadTextBytes {
   bytes: Uint8Array;
-  result: TextResult;
+  result: Pick<OwnerExtractionResult, 'revision' | 'text' | 'derivatives'>;
   ownerId: string;
   byteRevision: number;
 }

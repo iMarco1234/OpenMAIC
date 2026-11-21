@@ -15,9 +15,6 @@ const targets: Record<OnboardingStep, string> = {
   replay: '[data-pbl-tour="replay"]',
 };
 
-// The initial overview is a plain reading pane, before the chat viewport mounts.
-const readingViewport = '.pbl-conversation-scroll, [data-testid="pbl-project-start"]';
-
 type Box = { x: number; y: number; width: number; height: number };
 type Layout = {
   width: number;
@@ -65,7 +62,7 @@ export function WorkbenchOnboarding({
   // conversation is safe, so forward only scroll gestures inside its viewport.
   const scrollReading = (x: number, y: number, delta: number, mode = 0) => {
     if (step !== 'discussion') return false;
-    const viewport = root.current?.querySelector<HTMLElement>(readingViewport);
+    const viewport = root.current?.querySelector<HTMLElement>('.pbl-conversation-scroll');
     if (!viewport) return false;
     const bounds = viewport.getBoundingClientRect();
     if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) return false;
@@ -155,7 +152,7 @@ export function WorkbenchOnboarding({
         edge = 12;
       const compactDiscussion = step === 'discussion' && width < 640;
       const reading = compactDiscussion
-        ? anchor?.querySelector(readingViewport)?.getBoundingClientRect()
+        ? anchor?.querySelector('.pbl-conversation-scroll')?.getBoundingClientRect()
         : undefined;
       const cardMaxHeight = compactDiscussion
         ? Math.max(

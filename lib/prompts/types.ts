@@ -5,11 +5,7 @@
 /**
  * Prompt template identifier
  */
-export type PromptId =
-  | 'material-chapters'
-  | 'interactive-outlines'
-  | 'task-engine-outlines'
-  | 'web-search-query-rewrite';
+export type PromptId = 'interactive-outlines' | 'task-engine-outlines' | 'web-search-query-rewrite';
 
 /**
  * Snippet identifier

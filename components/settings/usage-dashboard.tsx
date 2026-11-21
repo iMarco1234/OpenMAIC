@@ -1,25 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import type { ECharts } from 'echarts/core';
+import * as echarts from 'echarts/core';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent } from 'echarts/components';
+import { SVGRenderer } from 'echarts/renderers';
 import { Loader2, RefreshCw, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useTheme } from '@/lib/hooks/use-theme';
 import { formatUsageNumber } from '@/lib/utils/usage-number';
 
-/** The trend chart's library, loaded when the dashboard first draws it. */
-async function loadUsageChartRuntime() {
-  const [echarts, { LineChart }, { GridComponent, TooltipComponent }, { SVGRenderer }] =
-    await Promise.all([
-      import('echarts/core'),
-      import('echarts/charts'),
-      import('echarts/components'),
-      import('echarts/renderers'),
-    ]);
-  echarts.use([LineChart, GridComponent, TooltipComponent, SVGRenderer]);
-  return echarts;
-}
+echarts.use([LineChart, GridComponent, TooltipComponent, SVGRenderer]);
 
 type UsageKind = 'llm' | 'image' | 'video' | 'tts' | 'asr';
 type UsageUnit = 'token' | 'image' | 'second' | 'character';
@@ -65,7 +57,7 @@ export function UsageDashboard() {
   const [data, setData] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<ECharts | null>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,70 +104,59 @@ export function UsageDashboard() {
   // Area-only with a soft gradient + faint line, theme-aware, to avoid the
   // harsh solid stroke in dark mode.
   useEffect(() => {
-    const container = chartRef.current;
-    if (!container) return;
-    let cancelled = false;
-    const draw = (echarts: Awaited<ReturnType<typeof loadUsageChartRuntime>>) => {
-      if (cancelled) return;
-      if (!chartInstance.current) {
-        chartInstance.current = echarts.init(container, undefined, { renderer: 'svg' });
-      }
-      const chart = chartInstance.current;
-      const axis = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
-      const split = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-      const accent = isDark ? '#a78bfa' : '#7c3aed'; // violet, matches primary
+    if (!chartRef.current) return;
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current, undefined, { renderer: 'svg' });
+    }
+    const chart = chartInstance.current;
+    const axis = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
+    const split = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+    const accent = isDark ? '#a78bfa' : '#7c3aed'; // violet, matches primary
 
-      chart.setOption({
-        tooltip: { trigger: 'axis' },
-        grid: { left: 44, right: 16, top: 16, bottom: 28 },
-        xAxis: {
-          type: 'category',
-          data: byDay.map((b) => b.key),
-          axisLabel: { color: axis, fontSize: 11 },
-          axisLine: { lineStyle: { color: split } },
-          axisTick: { show: false },
-        },
-        yAxis: {
-          type: 'value',
-          minInterval: 1,
-          axisLabel: { color: axis, fontSize: 11 },
-          splitLine: { lineStyle: { color: split } },
-        },
-        series: [
-          {
-            name: t('settings.usage.totalRequests'),
-            type: 'line',
-            smooth: true,
-            symbol: 'circle',
-            symbolSize: 5,
-            itemStyle: { color: accent },
-            // Faint, thin connecting line instead of a hard solid stroke.
-            lineStyle: { color: accent, width: 1, opacity: isDark ? 0.5 : 0.7 },
-            areaStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [
-                  { offset: 0, color: isDark ? 'rgba(167,139,250,0.35)' : 'rgba(124,58,237,0.25)' },
-                  { offset: 1, color: isDark ? 'rgba(167,139,250,0.02)' : 'rgba(124,58,237,0.02)' },
-                ],
-              },
+    chart.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 44, right: 16, top: 16, bottom: 28 },
+      xAxis: {
+        type: 'category',
+        data: byDay.map((b) => b.key),
+        axisLabel: { color: axis, fontSize: 11 },
+        axisLine: { lineStyle: { color: split } },
+        axisTick: { show: false },
+      },
+      yAxis: {
+        type: 'value',
+        minInterval: 1,
+        axisLabel: { color: axis, fontSize: 11 },
+        splitLine: { lineStyle: { color: split } },
+      },
+      series: [
+        {
+          name: t('settings.usage.totalRequests'),
+          type: 'line',
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 5,
+          itemStyle: { color: accent },
+          // Faint, thin connecting line instead of a hard solid stroke.
+          lineStyle: { color: accent, width: 1, opacity: isDark ? 0.5 : 0.7 },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: isDark ? 'rgba(167,139,250,0.35)' : 'rgba(124,58,237,0.25)' },
+                { offset: 1, color: isDark ? 'rgba(167,139,250,0.02)' : 'rgba(124,58,237,0.02)' },
+              ],
             },
-            data: byDay.map((b) => b.requests),
           },
-        ],
-      });
-      chart.resize();
-    };
-    loadUsageChartRuntime().then(draw, () => {
-      // best-effort: the figures below the chart do not depend on it
+          data: byDay.map((b) => b.requests),
+        },
+      ],
     });
-    return () => {
-      cancelled = true;
-    };
+    chart.resize();
   }, [byDay, t, isDark]);
 
   useEffect(() => {

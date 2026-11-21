@@ -44,11 +44,6 @@ import {
 import type { PromptId } from './prompts/types.js';
 import { buildPrompt, PROMPT_IDS } from './prompts/index.js';
 import { buildSlideContentPrompt } from './scene-prompts.js';
-import {
-  formatAdditionalWidgetRequirements,
-  formatWidgetVariables,
-  resolveWidgetDesignIdea,
-} from './widget-outline-format.js';
 import type {
   GeneratedInteractiveContent,
   GeneratedPBLContent,
@@ -746,7 +741,6 @@ async function generateSlideContent(
       title: outline.title,
       description: outline.description,
       keyPoints: (outline.keyPoints || []).map((p, i) => `${i + 1}. ${p}`).join('\n'),
-      design: outline.design?.trim() || '',
       elements: '（根据要点自动生成）',
       assignedImages: assignedImagesText,
       teacherContext,
@@ -1303,8 +1297,8 @@ export async function generateWidgetContent(
         conceptName: widgetOutline.concept || outline.title,
         conceptOverview: outline.description,
         keyPoints: (outline.keyPoints || []).join('\n'),
-        variables: formatWidgetVariables(widgetOutline.keyVariables),
-        designIdea: resolveWidgetDesignIdea(outline),
+        variables: widgetOutline.keyVariables?.join(', ') || '',
+        designIdea: '',
         languageDirective: languageDirective || '',
       };
       break;
@@ -1389,8 +1383,6 @@ export async function generateWidgetContent(
       log.warn(`Unknown widget type: ${widgetType}`);
       return null;
   }
-
-  variables.additionalRequirements = formatAdditionalWidgetRequirements(outline, widgetType);
 
   const prompts = buildPrompt(promptId, variables);
   if (!prompts) {

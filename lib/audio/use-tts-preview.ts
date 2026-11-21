@@ -2,7 +2,11 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { isBrowserTTSAbortError, playBrowserTTSPreview } from '@/lib/audio/browser-tts-preview';
+import {
+  ensureVoicesLoaded,
+  isBrowserTTSAbortError,
+  playBrowserTTSPreview,
+} from '@/lib/audio/browser-tts-preview';
 
 export interface TTSPreviewOptions {
   text: string;
@@ -75,11 +79,19 @@ export function useTTSPreview() {
       setPreviewing(true);
       try {
         if (options.providerId === 'browser-native-tts') {
-          // Rejects when speech is unsupported or no voices load.
+          if (typeof window === 'undefined' || !window.speechSynthesis) {
+            throw new Error('Browser does not support Speech Synthesis API');
+          }
+          const voices = await ensureVoicesLoaded();
+          if (isStale()) return;
+          if (voices.length === 0) {
+            throw new Error('No browser TTS voices available');
+          }
           const controller = playBrowserTTSPreview({
             text: options.text,
             voice: options.voice,
             rate: options.speed,
+            voices,
             locale,
           });
           cancelRef.current = controller.cancel;
@@ -115,11 +127,7 @@ export function useTTSPreview() {
         if (isStale()) return;
 
         if (!res.ok || !data.base64) {
-          const error = new Error(data.error || 'TTS preview failed') as Error & {
-            errorCode?: string;
-          };
-          if (typeof data.errorCode === 'string') error.errorCode = data.errorCode;
-          throw error;
+          throw new Error(data.error || 'TTS preview failed');
         }
 
         // Decode base64 → Blob → Object URL

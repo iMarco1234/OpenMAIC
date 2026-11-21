@@ -1,6 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import type { EventEmitter } from 'node:events';
-import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import {
   DocumentImageParseError,
@@ -32,7 +31,7 @@ afterEach(() => {
 it('loads the parser worker from its source path', async () => {
   const job = runDocumentImageWorker({ kind: 'plan', text: 'text' });
   expect(vi.mocked(Worker).mock.calls.at(-1)?.[0]).toBe(
-    join(process.cwd(), 'lib/server/material-extraction/document-image-worker.mjs'),
+    `${process.cwd()}/lib/server/material-extraction/document-image-worker.mjs`,
   );
   state.worker!.emit('message', { result: { markdown: [], html: [] } });
   await expect(job).resolves.toEqual({ markdown: [], html: [] });

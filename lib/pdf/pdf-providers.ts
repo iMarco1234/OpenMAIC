@@ -144,11 +144,8 @@ import type { ParsedPdfContent } from '@/lib/types/pdf';
 import { PDF_PROVIDERS } from './constants';
 import { createLogger } from '@/lib/logger';
 import { extractMinerUResult } from './mineru-parser';
-import { parseMinerUPdfChunks } from './mineru-chunks';
 import { parseWithMinerUCloud } from './mineru-cloud';
-import { parseWithMiniCPMOCR } from './minicpm-ocr';
 import { parseWithAliDocMindClient } from './alidocmind-client';
-import { parseWithDeepSeekOCR } from './deepseek-ocr';
 import { providerFetch, type ProviderFetchPolicy } from '@/lib/server/provider-fetch';
 import { MaterialSourceRefusedError } from '@/lib/server/material-extraction/errors';
 
@@ -317,12 +314,7 @@ export async function parsePDF(
   if (provider.requiresApiKey && !config.apiKey) {
     // AliDocMind uses AK/SK instead of a single apiKey; check separately.
     const envAvailable = config.allowEnvFallback && !!process.env.ALIDOCMIND_ACCESS_KEY_ID;
-    const aliDocMindCredentials =
-      config.providerId === 'alidocmind' && (Boolean(config.accessKeyId) || envAvailable);
-    // A provider with both a hosted API and a self-hosted deployment may run
-    // without a key when the operator points it at their own service.
-    const keylessSelfHost = provider.apiKeyOptionalWithBaseUrl === true && Boolean(config.baseUrl);
-    if (!aliDocMindCredentials && !keylessSelfHost) {
+    if (config.providerId !== 'alidocmind' || (!config.accessKeyId && !envAvailable)) {
       throw new Error(`API key required for PDF provider: ${config.providerId}`);
     }
   }
@@ -346,14 +338,6 @@ export async function parsePDF(
 
     case 'alidocmind':
       result = await parseWithAliDocMind(config, pdfBuffer, options);
-      break;
-
-    case 'minicpm-ocr':
-      result = await parseWithMiniCPMOCR(config, pdfBuffer, options);
-      break;
-
-    case 'deepseek-ocr':
-      result = await parseWithDeepSeekOCR(config, pdfBuffer, options);
       break;
 
     default:
@@ -755,24 +739,6 @@ export async function parseWithMinerUDocument(
     );
   }
 
-  if (options.mimeType.toLowerCase() === 'application/pdf') {
-    const chunked = await parseMinerUPdfChunks(
-      documentBuffer,
-      (bytes, fileName, signal) =>
-        requestMinerUDocument({ ...config, signal }, bytes, { ...options, fileName }),
-      config.signal,
-    );
-    if (chunked) return chunked;
-  }
-  return extractMinerUResult(await requestMinerUDocument(config, documentBuffer, options));
-}
-
-/** The original single-file request, shared by whole documents and temporary PDF chunks. */
-async function requestMinerUDocument(
-  config: PDFParserConfig,
-  documentBuffer: Buffer,
-  options: { fileName: string; mimeType: string },
-): Promise<Record<string, unknown>> {
   log.info(`[MinerU] Parsing document with MinerU server: ${config.baseUrl}`);
 
   // Create FormData for file upload
@@ -845,10 +811,10 @@ async function requestMinerUDocument(
       throw new Error('MinerU returned no results');
     }
     log.warn(`[MinerU] Filename mismatch, using key "${keys[0]}" instead of "${options.fileName}"`);
-    return fallback;
+    return extractMinerUResult(fallback);
   }
 
-  return fileResult;
+  return extractMinerUResult(fileResult);
 }
 
 // Re-export from constants for convenience

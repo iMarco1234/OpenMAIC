@@ -116,7 +116,6 @@ export function TextToolbarOverlay({
     <div
       ref={overlayRef}
       data-toolbar-overlay=""
-      data-toolbar-anchor={elementIdPrefix + elementId}
       data-side={position?.side ?? placement}
       style={{
         left: position ? `${position.left}px` : '0px',

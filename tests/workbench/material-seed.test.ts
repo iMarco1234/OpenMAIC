@@ -6,7 +6,6 @@
  * and answers when it is over: staged, or refused by the per-message cap.
  */
 import { act, createElement, StrictMode } from 'react';
-import { COMPOSER_INPUT, setComposerText } from './_composer-driver';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -138,9 +137,13 @@ describe('handing a material to the home composer', () => {
     expect(consumed).toHaveBeenCalledTimes(1);
     expect(consumed).toHaveBeenCalledWith(7);
 
-    const textarea = view.container.querySelector<HTMLElement>(COMPOSER_INPUT)!;
+    const textarea = view.container.querySelector('textarea')!;
     await act(async () => {
-      setComposerText(textarea, 'Teach this');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(
+        textarea,
+        'Teach this',
+      );
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await act(async () =>
       view.container.querySelector<HTMLButtonElement>('[data-testid="pro-launch-start"]')!.click(),

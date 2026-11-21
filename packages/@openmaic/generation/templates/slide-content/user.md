@@ -9,13 +9,7 @@
 
 {{teacherContext}}
 
-{{#if design}}## Design Brief
-
-How this page should look, as a designer specified it. Follow it for the composition, palette and placement of the content above. It is direction, not page text: take every word on the page from the Scene Information. Where it conflicts with the canvas size or the layout rules, those rules win.
-
-{{design}}
-
-{{/if}}## Available Resources
+## Available Resources
 
 {{#if mediaElementEnabled}}
 - **Available Media**: {{assignedImages}}

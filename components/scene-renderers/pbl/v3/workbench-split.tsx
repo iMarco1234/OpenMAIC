@@ -105,9 +105,6 @@ export function WorkbenchSplit({
           >
             <Panel
               id="workspace"
-              groupResizeBehavior={
-                hasApplication && !compact ? 'preserve-pixel-size' : 'preserve-relative-size'
-              }
               panelRef={workspacePanel}
               collapsible
               defaultSize={hasApplication ? '58.6%' : '100%'}
@@ -147,7 +144,7 @@ export function WorkbenchSplit({
           panelRef={assistantPanel}
           collapsible
           defaultSize="45%"
-          minSize={stacked ? '400px' : compact ? 0 : '20%'}
+          minSize={stacked ? '400px' : compact ? 0 : '28%'}
           className="h-full min-w-0"
         >
           {assistant}

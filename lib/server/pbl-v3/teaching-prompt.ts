@@ -1,4 +1,3 @@
-import { HOST_STATE_TAIL_RULES } from '@/lib/ai/request-state-tail';
 import 'server-only';
 import { communicationRules, type ResponseLanguage } from './communication';
 import type {
@@ -68,7 +67,7 @@ export interface TeachingPromptInput {
 }
 
 const feedbackRules =
-  'Use the current feedbackSource and section positions to choose the next action. For pending_review_reply, explain how the new reply answers the recorded question in studentFeedback and omit reuseFeedback. For verified_feedback, set reuseFeedback: true only if the previously verified same-version learner reply covers the current goal, and explain that coverage concretely. The presence of verified_feedback alone does not mean a new goal is answered. New unanswered goals require one request_skill_review and real new feedback. Do not add another example or boundary question merely to prolong review. Explicit confident understanding is sufficient absent unresolved errors or questions; it does not replace required artifact approval. Quotes and summaries of actual learner replies are allowed. The host rechecks the current version. After delivering the active section, if feedbackSource is null, record one necessary question with request_skill_review and wait before advancing. A protocol rejection is not a transient network error: follow the returned current section and next action; do not retry by paraphrasing feedback or blindly switching reuseFeedback. A reread does not create learner evidence.';
+  'Use the current feedbackSource and section positions to choose the next action. For pending_review_reply, explain how the new reply answers the recorded question in studentFeedback and omit reuseFeedback. For verified_feedback, set reuseFeedback: true only if the previously verified same-version learner reply covers the current goal, and explain that coverage concretely. The presence of verified_feedback alone does not mean a new goal is answered. New unanswered goals require one request_skill_review and real new feedback. Do not add another example or boundary question merely to prolong review. Explicit confident understanding is sufficient absent unresolved errors or questions; it does not replace required artifact approval. Quotes and summaries of actual learner replies are allowed. The host rechecks the current version. After delivering the active section, if feedbackSource is null, record one necessary question with request_skill_review and wait before advancing.';
 
 const artifactApprovalRules =
   'Actual current-version plan/code approval is still required. When requesting approval before the final section, set request_skill_review.approval. For a real reply that explicitly accepts the unchanged version, set artifactApproved when advancing or completing. Mere understanding does not count as approval. Clarify mixed acceptance and requests for changes. The final artifact section requests approval automatically. Reuse priorArtifactApproval if it covers the unchanged version, which the host revalidates.';
@@ -174,7 +173,7 @@ function buildTeachingPrompt({
     workspace,
     uiLocale: communication.uiLocale,
   });
-  const systemPrompt =
+  return (
     buildSystemPrompt({
       role: role,
       seed: {
@@ -185,6 +184,7 @@ function buildTeachingPrompt({
         ...(welcome === 'pending' ? {} : seed),
         projectContext: { title: definition.title, language: definition.language },
         stageEntry: {
+          automatic: automaticEntry,
           firstMilestone: milestoneIndex === 0,
           step: stageIndex + 1,
           totalSteps: milestone.stages.length,
@@ -198,10 +198,35 @@ function buildTeachingPrompt({
             : milestoneIndex + 1 < definition.milestones.length
               ? 'next_milestone'
               : 'project_complete',
+          completionRecorded,
           confirmation,
         },
         milestone: { id: milestone.id, title: milestone.title },
         goal: milestone.goal ?? milestone.title,
+        ...(guided
+          ? {
+              teachingContext: {
+                stageKey: stageKey,
+                completionRecorded,
+                welcome,
+                welcomePresented,
+                artifactApprovalRequired,
+                ...(artifactApprovalRequired ? { priorArtifactApproval } : {}),
+                feedbackSource,
+                activeSection: activeSection || null,
+                nextSection:
+                  welcome === 'pending' && activeSection
+                    ? activeSection
+                    : (skill.progression[reviewedSectionCount + (activeSection ? 2 : 1)] ?? null),
+                finalSection: skill.progression.at(-1)!,
+              },
+            }
+          : {}),
+        ...(guided && pendingReview
+          ? {
+              currentReview: teachingReview(pendingReview),
+            }
+          : {}),
         ...(stage.kind === 'check'
           ? {
               assessmentContext: {
@@ -294,45 +319,13 @@ function buildTeachingPrompt({
         (artifactApprovalRequired ? artifactApprovalRules + ' ' : '') +
         confirmation
       : repairing
-        ? '\nHelp the learner diagnose the observed test failure. Read the relevant source and plan. If the implementation is wrong, repair the permitted source directly. Do not require a PLAN.md edit or another plan approval before fixing code. Explain the observed issue, which files changed, and that saved edits are recorded by the workbench. If the evidence points to the plan itself (for example, a test checks a missing course-required record in PLAN.md), explain why a source change would not fix it. The learner may edit PLAN.md in the IDE while the assistant and tests are idle. If the learner asks you to amend it, make the focused change with write_file. Keep approved earlier chapters intact where the course uses incremental plans. Preserve the original decision. If a repair changes the learner’s intended behavior, explain the evidence and obtain actual learner confirmation of the revised rule before making that change. A file edit cannot resubmit a formal choice. When the failure is an unreliable evaluation, diagnose the environment or retry before assuming any file needs changing. After a repair, ask the learner to run the formal tests again. Only the recorded result establishes a pass.'
+        ? '\nHelp the learner diagnose the observed test failure. Read the current code and approved plan before making a focused repair. Distinguish an implementation that departed from the learner plan from a learner proposal whose behavior failed the project goal. If fixing the latter changes a recorded decision, explain the evidence and obtain actual learner confirmation of the revised rule before changing its behavior; do not silently replace the proposal with your preferred answer. Preserve the original decision and record any learner-confirmed amendment using the current course artifacts and allowed tools. Do not claim to have updated a formal decision or approved plan through unavailable controls. Then make the focused repair and ask the learner to run tests again using the project controls. Never claim the repair passed without a new test result.'
         : stage.kind === 'check'
           ? '\nBriefly introduce the current test or quiz using productContext controls. Do not give assessment answers, run checks, or claim results. Wait for the learner to use the controls. Ordinary tests/quizzes have no learner chat: do not invite a message; answer repair questions only when productContext.current.chatSupported is true.'
           : '\nFocus decision guidance on the current offered decisions. The learner records choices using the project controls. Project knowledge and product help remain available.') +
     '\n' +
-    productHelpRules +
-    '\n' +
-    HOST_STATE_TAIL_RULES;
-  const initialContext =
-    '\nInitial teaching state: ' +
-    JSON.stringify({
-      stageEntry: { automatic: automaticEntry },
-      learningRoadmap: { completionRecorded },
-      ...(guided
-        ? {
-            teachingContext: {
-              stageKey: stageKey,
-              completionRecorded,
-              welcome,
-              welcomePresented,
-              artifactApprovalRequired,
-              ...(artifactApprovalRequired ? { priorArtifactApproval } : {}),
-              feedbackSource,
-              activeSection: activeSection || null,
-              nextSection:
-                welcome === 'pending' && activeSection
-                  ? activeSection
-                  : (skill.progression[reviewedSectionCount + (activeSection ? 2 : 1)] ?? null),
-              finalSection: skill.progression.at(-1)!,
-            },
-          }
-        : {}),
-      ...(guided && pendingReview
-        ? {
-            currentReview: teachingReview(pendingReview),
-          }
-        : {}),
-    });
-  return { systemPrompt, initialContext };
+    productHelpRules
+  );
 }
 
 /** Learner text belongs to durable conversation history. */
@@ -451,7 +444,7 @@ export function teachingLiveSuffix(live: string): string {
  * Learner history is managed separately by the teaching context window.
  */
 export function renderTeachingPrompt(input: TeachingPromptInput) {
-  const { systemPrompt, initialContext } = buildTeachingPrompt(input);
+  const systemPrompt = buildTeachingPrompt(input);
   const sections =
     input.stage.kind === 'produce' || input.stage.kind === 'mentor_say'
       ? input.skill.progression
@@ -461,11 +454,9 @@ export function renderTeachingPrompt(input: TeachingPromptInput) {
   const sectionBytes = sections.length ? Buffer.byteLength(JSON.stringify(sections)) : 0;
   return {
     systemPrompt,
-    initialContext,
     sectionBytes,
     bytes:
-      Buffer.byteLength(
-        systemPrompt + initialContext + teachingLiveSuffix(teachingLiveContext(input)),
-      ) + sectionBytes,
+      Buffer.byteLength(systemPrompt + teachingLiveSuffix(teachingLiveContext(input))) +
+      sectionBytes,
   };
 }

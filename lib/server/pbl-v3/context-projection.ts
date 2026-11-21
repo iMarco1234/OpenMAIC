@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import type { SessionTreeEntry, StreamFn } from '@earendil-works/pi-agent-core';
 import type { Context, Message, Model, Api, AssistantMessage } from '@earendil-works/pi-ai';
 import { currentTeachingContext, type TeachingHistoryWindow } from './teaching-context';
-import { withPlanToolContext } from './plan-tool-context';
 import {
   contextBytes as size,
   estimatedRequestTokens,
@@ -288,12 +287,7 @@ export function createTeachingContextProjection(
         offset = end;
       }
       const projected = withSummary(
-        // The empty-message budget base cannot resolve a retained file receipt.
-        // Recheck the actual compacted history before deciding snapshot vs reference.
-        withPlanToolContext(
-          { ...base, messages: recentMessages(context, covered) },
-          window.initialPlan,
-        ),
+        { ...base, messages: recentMessages(context, covered) },
         summary,
       );
       if (estimatedRequestTokens(projected) > budget.inputTokens)

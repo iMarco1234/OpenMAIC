@@ -9,7 +9,7 @@
  * resolved model carries with it (lib/ai/model-fallbacks.ts); a model from the
  * older request path retries on `MODEL_FALLBACK`.
  *
- * `verify-model` and `eval-*` opt out: they probe the exact model the
+ * `verify-model` opts out (option in callLLM): it probes the exact model the
  * user typed in, and answering from a different model would report a dead or
  * mis-keyed model as healthy. Content-safety rejections and other 4xx failures
  * never fall back — retrying a rejected prompt on a second model would spend
@@ -41,8 +41,6 @@ export interface FallbackResolution {
   model: LanguageModel;
   /** Canonical `provider:model` string of the fallback, for logs. */
   modelString: string;
-  /** Known maximum output tokens of the fallback; absent for unknown models. */
-  outputWindow?: number;
 }
 
 /**
@@ -61,7 +59,7 @@ export async function resolveFallbackModel(): Promise<FallbackResolution | null>
   const apiKey = resolveApiKey(providerId, '');
   const baseUrl = resolveBaseUrl(providerId);
   const proxy = resolveProxy(providerId);
-  const { model, modelInfo } = getModel({
+  const { model } = getModel({
     providerId,
     modelId,
     apiKey,
@@ -70,7 +68,7 @@ export async function resolveFallbackModel(): Promise<FallbackResolution | null>
     // Re-validate every redirect hop of the outbound request, same as resolveModel.
     fetchImpl: fetchWithRedirectValidation,
   });
-  return { model, modelString: fallbackStr, outputWindow: modelInfo?.outputWindow };
+  return { model, modelString: fallbackStr };
 }
 
 /**

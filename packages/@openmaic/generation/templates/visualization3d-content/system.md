@@ -187,8 +187,7 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
       background: #0a0a1a;  /* MUST match scene.background color! */
     }
     #canvas-container { width: 100%; height: 100%; position: relative; }
-    /* The renderer's canvas sits out of flow, so it never sizes its container. */
-    #canvas-container > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    canvas { display: block; }
 
     /* Loading overlay - shows while Three.js initializes */
     #loading {
@@ -405,8 +404,8 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 
         // Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(width, height, false); // Drawing buffer only; the CSS above sizes the canvas
         container.appendChild(renderer.domElement);
 
         // OrbitControls
@@ -459,15 +458,14 @@ const earth = new THREE.Mesh(earthGeometry, earthMaterial);
           controls.target.set(0, 0, 0);
         });
 
-        // Resize with the container, which does not depend on the canvas
-        new ResizeObserver(() => {
-          const newWidth = container.clientWidth;
-          const newHeight = container.clientHeight;
-          if (!newWidth || !newHeight) return;
+        // Handle resize
+        window.addEventListener('resize', () => {
+          const newWidth = container.clientWidth || window.innerWidth;
+          const newHeight = container.clientHeight || window.innerHeight;
           camera.aspect = newWidth / newHeight;
           camera.updateProjectionMatrix();
-          renderer.setSize(newWidth, newHeight, false);
-        }).observe(container);
+          renderer.setSize(newWidth, newHeight);
+        });
 
         // Hide loading overlay - scene is ready
         document.getElementById('loading').style.display = 'none';
@@ -670,5 +668,3 @@ Return ONLY the HTML document, no markdown fences or explanations.
 {{snippet:interactive-math}}
 
 {{snippet:interactive-observation}}
-
-{{snippet:interactive-display-state}}

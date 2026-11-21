@@ -77,12 +77,7 @@ export function composerTakeover(input: {
  * would be one collision away from sending the sentinel as an answer.
  */
 export type QuestionFormRow =
-  | {
-      readonly kind: 'option';
-      readonly id: string;
-      readonly label: string;
-      readonly recommended?: true;
-    }
+  | { readonly kind: 'option'; readonly id: string; readonly label: string }
   /** `label` is the agent's own wording for it, when it supplied the row. */
   | { readonly kind: 'other'; readonly label?: string };
 
@@ -185,28 +180,6 @@ export function quickPickIndex(key: string, rowCount: number): number | null {
   if (key.length !== 1 || key < '1' || key > '9') return null;
   const index = Number(key) - 1;
   return index < rowCount ? index : null;
-}
-
-/**
- * Marks the form's own keyboard stops: the option rows and submit. Arrow keys,
- * digits and Enter are the form's there.
- */
-export const QUESTION_NAV_ATTR = 'data-question-nav';
-
-const CONTROLS =
-  'button, a[href], [role="switch"], select, [contenteditable=""], [contenteditable="true"]';
-
-/**
- * Whether a key event comes from a control that owns its own keys — the
- * auto-confirm switch, Collapse, a details toggle, a link in the question —
- * rather than from an option row, submit or the form's text boxes. Enter and
- * Space there must do what that control does (toggle, collapse, expand), not
- * pick the highlighted row; only Escape still belongs to the form.
- */
-export function isForeignKeyTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  if (target.closest(`[${QUESTION_NAV_ATTR}]`)) return false;
-  return target.closest(CONTROLS) !== null;
 }
 
 /** Whether the event's target is a text box, and whether Enter belongs to it. */
@@ -317,11 +290,6 @@ export function useQuestionForm(
   /** Keyboard: confirm this row (single choice sends; past the last row is submit). */
   activate: (index: number) => void;
   submit: () => void;
-  /**
-   * Answer with exactly this option, as picking it alone and submitting would
-   * (the auto-confirm path). Resolves whether the send was accepted.
-   */
-  answerWithOption: (id: string) => Promise<boolean>;
 } {
   const mode = questionMode(node);
   const options = node.questionOptions ?? [];
@@ -356,12 +324,11 @@ export function useQuestionForm(
   });
   const answerText = formAnswerText({ mode, options, picks, otherText, openText, t });
 
-  const send = (text: string): Promise<boolean> => {
-    if (locked || !onAnswer || !text) return Promise.resolve(false);
+  const send = (text: string) => {
+    if (locked || !onAnswer || !text) return;
     setSending(true);
-    return onAnswer(text).then((ok) => {
+    void onAnswer(text).then((ok) => {
       if (!ok) setSending(false);
-      return ok;
     });
   };
 
@@ -406,24 +373,16 @@ export function useQuestionForm(
       if (locked) return;
       // Past the last row is submit — one highlight space, one Enter.
       if (index >= rows.length) {
-        void send(answerText);
+        send(answerText);
         return;
       }
       const next = pick(index);
       // A single-choice canned row IS the answer. The "other" row never sends on
       // confirm: there is a box to fill first, and the focus lands in it.
       if (next && mode === 'single' && rows[index]?.kind === 'option') {
-        void send(formAnswerText({ mode, options, picks: next, otherText, openText, t }));
+        send(formAnswerText({ mode, options, picks: next, otherText, openText, t }));
       }
     },
-    submit: () => void send(answerText),
-    answerWithOption: (id) => {
-      if (locked || !rows.some((row) => row.kind === 'option' && row.id === id)) {
-        return Promise.resolve(false);
-      }
-      const only: QuestionFormPicks = { picked: [id], otherPicked: false };
-      setPicks(only);
-      return send(formAnswerText({ mode, options, picks: only, otherText: '', openText: '', t }));
-    },
+    submit: () => send(answerText),
   };
 }

@@ -37,11 +37,6 @@ export function SelectionOverlay({ elements, selection, scale }: SelectionOverla
         return (
           <BorderLine
             key={el.id}
-            className={
-              el.type === 'text' && el.id === selection.editingId
-                ? 'maic-editing-text-frame'
-                : undefined
-            }
             width={el.width * scale}
             height={el.height * scale}
             style={{

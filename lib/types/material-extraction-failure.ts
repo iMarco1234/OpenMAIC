@@ -9,7 +9,6 @@ export const MATERIAL_EXTRACTION_REASON_CODES = [
   'no_text_extracted',
   'processing_interrupted',
   'too_many_pages',
-  'pages_failed',
 ] as const;
 
 export type MaterialExtractionReasonCode = (typeof MATERIAL_EXTRACTION_REASON_CODES)[number];
@@ -22,14 +21,13 @@ export function extractionReasonCodeOf(value: unknown): MaterialExtractionReason
 }
 
 /**
- * The numbers a failure's explanation states: a document's page count and
- * limit, or the physical page range that failed. Never provider text.
+ * The numbers a failure's explanation states, when the service that refused
+ * the source said them: `too_many_pages` carries the document's page count
+ * and the service's page limit. Only counts, never provider text.
  */
 export interface MaterialExtractionReasonValues {
   pages?: number;
   maxPages?: number;
-  firstPage?: number;
-  lastPage?: number;
 }
 
 function count(value: unknown): number | undefined {
@@ -41,14 +39,7 @@ export function extractionReasonValuesOf(
   code: MaterialExtractionReasonCode | undefined,
   value: unknown,
 ): MaterialExtractionReasonValues | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  if (code === 'pages_failed') {
-    const firstPage = count((value as { firstPage?: unknown }).firstPage);
-    const lastPage = count((value as { lastPage?: unknown }).lastPage);
-    if (firstPage === undefined && lastPage === undefined) return undefined;
-    return { ...(firstPage ? { firstPage } : {}), ...(lastPage ? { lastPage } : {}) };
-  }
-  if (code !== 'too_many_pages') return undefined;
+  if (code !== 'too_many_pages' || !value || typeof value !== 'object') return undefined;
   const pages = count((value as { pages?: unknown }).pages);
   const maxPages = count((value as { maxPages?: unknown }).maxPages);
   if (pages === undefined && maxPages === undefined) return undefined;
@@ -70,12 +61,6 @@ export function extractionFailureDescription(
   if (code === 'media_too_long') {
     // The extractor's own limit, so the explanation cannot drift from it.
     return { key: 'description', values: { minutes: MEDIA_MAX_DURATION_SEC / 60 } };
-  }
-  if (code === 'pages_failed') {
-    const { firstPage, lastPage } = values ?? {};
-    if (!firstPage || !lastPage || firstPage > lastPage)
-      return { key: 'descriptionWithoutCount', values: {} };
-    return { key: 'description', values: { firstPage, lastPage } };
   }
   if (code === 'too_many_pages') {
     const { pages, maxPages } = values ?? {};

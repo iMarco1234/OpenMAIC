@@ -22,7 +22,6 @@ import {
 import { ElementOrderCommands, ElementAlignCommands } from '@/lib/types/edit';
 import { useCanvasOperations } from '@/lib/hooks/use-canvas-operations';
 import { editableElementDomId, maicElementIdAttributes } from '../../element-dom';
-import { useSlideTextStyle } from '../../use-slide-text-style';
 
 export interface ContextmenuItem {
   text?: string;
@@ -69,8 +68,6 @@ export function EditableElement({
     };
     return elementTypeMap[elementInfo.type] || null;
   }, [elementInfo.type]);
-
-  const textStyle = useSlideTextStyle();
 
   const {
     copyElement,
@@ -245,7 +242,6 @@ export function EditableElement({
       className="editable-element absolute"
       style={{
         zIndex: elementIndex,
-        ...textStyle,
       }}
     >
       <ContextMenu>

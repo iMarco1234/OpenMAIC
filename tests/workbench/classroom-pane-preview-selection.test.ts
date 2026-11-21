@@ -26,7 +26,6 @@ vi.mock('@/components/classroom/ClassroomSurface', async () => {
     },
   };
 });
-vi.mock('@/components/stage/header-controls', () => ({ HeaderControls: () => null }));
 vi.mock('@/lib/workbench/use-workbench-pro-edit', () => ({ useWorkbenchProEditing: () => {} }));
 vi.mock('@/components/workbench/workspace/WorkspaceCourseTabs', () => ({
   WorkspaceCourseTabs: ({ activeCourseId }: { activeCourseId: string }) => {
@@ -61,7 +60,7 @@ const pane = (selectedTabId?: string) =>
       onCloseCourse: vi.fn(),
     },
     hidden: selectedTabId === 'request-preview',
-    fullscreen: false,
+    playback: false,
     readOnly: false,
   });
 

@@ -7,22 +7,15 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 vi.mock('server-only', () => ({}));
 import { installedProject } from '@/lib/server/pbl-v3/catalog';
-import { MAX_COMMAND_BYTES } from '@/lib/sandbox/types';
 import {
   evaluationCommand,
   evaluationPassed,
   evaluationOutcome,
   evaluationFor,
 } from '@/lib/server/pbl-v3/evaluation';
-
-// Some tests below run the sandbox's own shell and Python scripts, which target
-// the Linux sandbox. Windows has no `/bin/sh` or `python3` to run them with.
-const onWindows = process.platform === 'win32';
-
 const spec = installedProject({ id: 'greeting-python', version: '1.0.0' }).evaluations.greeting!;
 
-it('tests verified source bytes in a private working directory and rejects stale source', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('tests verified source bytes in a private working directory and rejects stale source', async () => {
   const cwd = await mkdtemp(join(tmpdir(), 'isolated-assessment-'));
   const run = promisify(execFile);
   const files = { 'source.txt': 'reviewed\n' };
@@ -55,44 +48,7 @@ it('tests verified source bytes in a private working directory and rejects stale
   }
 });
 
-it('fits a large isolated assessment in the command budget and keeps source verification', async (ctx) => {
-  if (onWindows) return ctx.skip();
-  const cwd = await mkdtemp(join(tmpdir(), 'packed-assessment-'));
-  const source = { 'source.txt': 'reviewed\n' };
-  const resource = 'a private assessment fixture\n'.repeat(744);
-  const assessment = {
-    decisionContext: { queue: 'per-session' },
-    resources: { 'tests/fixture.txt': resource },
-    cases: [
-      {
-        id: 'isolated',
-        argv: [
-          'python3',
-          '-c',
-          'import os,sys; from pathlib import Path; print(Path("source.txt").read_text().strip(), len(Path(sys.argv[1]).read_bytes()), os.environ["OPENMAIC_PBL_DECISIONS"])',
-          '{resources}/tests/fixture.txt',
-        ],
-        stdout: `reviewed ${Buffer.byteLength(resource)} {"queue": "per-session"}\n`,
-      },
-    ],
-  };
-  const requestId = '00000000-0000-0000-0000-000000000000';
-  const command = evaluationCommand(assessment, requestId, source);
-  expect(command).toContain('zlib.decompress');
-  expect(Buffer.byteLength(command)).toBeLessThanOrEqual(MAX_COMMAND_BYTES);
-  try {
-    await writeFile(join(cwd, 'source.txt'), source['source.txt']);
-    const run = () => promisify(execFile)('/bin/sh', ['-c', command], { cwd });
-    expect(evaluationPassed(assessment, requestId, (await run()).stdout)).toBe(true);
-    await writeFile(join(cwd, 'source.txt'), 'unreviewed\n');
-    expect(evaluationPassed(assessment, requestId, (await run()).stdout)).toBe(false);
-  } finally {
-    await rm(cwd, { recursive: true, force: true });
-  }
-});
-
-it('preserves the pre-decision runner encoding at the legacy 32 KiB boundary', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('preserves the pre-decision runner encoding at the legacy 32 KiB boundary', async () => {
   const legacy = {
     cases: [{ id: 'one', argv: ['python3', '-c', 'pass'], stdin: 'x'.repeat(21292), stdout: '' }],
   };
@@ -122,8 +78,7 @@ it('preserves the pre-decision runner encoding at the legacy 32 KiB boundary', a
   expect(evaluationPassed(inherited, 'legacy', stdout)).toBe(true);
 });
 
-it('binds only declared formal choices without changing the installed assessment', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('binds only declared formal choices without changing the installed assessment', async () => {
   const original = installedProject({ id: 'greeting-python', version: '1.0.0' });
   const project = structuredClone(original);
   project.evaluations.greeting!.decisionInputs = ['format'];
@@ -158,7 +113,7 @@ it('binds only declared formal choices without changing the installed assessment
   expect(command).not.toContain('private-text');
 });
 
-it.skipIf(onWindows).each(['\n', '\r\n', '\r'])(
+it.each(['\n', '\r\n', '\r'])(
   'normalizes expected and actual line endings equally without relaxing output checks (%j)',
   async (ending) => {
     const installed = {
@@ -186,7 +141,7 @@ it.skipIf(onWindows).each(['\n', '\r\n', '\r'])(
   },
 );
 
-it.skipIf(onWindows).each([false, true])(
+it.each([false, true])(
   'locates Python syntax errors with prepare=%s and permits a passing rerun',
   async (prepare) => {
     const root = await mkdtemp(join(tmpdir(), 'pbl-syntax-'));
@@ -329,8 +284,7 @@ it
   },
 );
 
-it('normalizes colored compiler diagnostics without publishing messages, source, or private fixture paths', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('normalizes colored compiler diagnostics without publishing messages, source, or private fixture paths', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pbl-colored-'));
   try {
     const installed = {
@@ -371,8 +325,7 @@ it('normalizes colored compiler diagnostics without publishing messages, source,
   }
 });
 
-it('does not blame learner code for a failed preparation without public-source diagnostics', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('does not blame learner code for a failed preparation without public-source diagnostics', async () => {
   const installed = { ...spec, prepare: ['python3', '-c', 'raise RuntimeError("SECRET_FIXTURE")'] };
   const observed = await promisify(execFile)('/bin/sh', [
     '-c',
@@ -388,8 +341,7 @@ it('does not blame learner code for a failed preparation without public-source d
   expect(JSON.stringify(outcome)).not.toMatch(/SECRET_FIXTURE|Traceback|greeting.py/);
 });
 
-it('classifies a syntax error in the private assessment driver as an unreliable assessment', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('classifies a syntax error in the private assessment driver as an unreliable assessment', async () => {
   const installed = {
     resources: { 'tests/private.py': 'def hidden_check(\n SECRET_EXPECTED' },
     cases: [
@@ -414,7 +366,7 @@ it('classifies a syntax error in the private assessment driver as an unreliable 
   expect(JSON.stringify(outcome)).not.toMatch(/SECRET_EXPECTED|PRIVATE_EXPECTED|private.py/);
 });
 describe('trusted evaluation driver', () => {
-  it.skipIf(onWindows).each([
+  it.each([
     ['def greet(name): return f"Hello, {name}!"', true],
     ['import sys\nsys.exit(0)', false],
     ['def greet(name): return "wrong"', false],
@@ -482,8 +434,7 @@ it.each(['failed', 'timed_out', 'cancelled'] as const)(
     ).toBe('error');
   },
 );
-it('distinguishes a missing interpreter from a learner implementation error', async (ctx) => {
-  if (onWindows) return ctx.skip();
+it('distinguishes a missing interpreter from a learner implementation error', async () => {
   const installed = {
     cases: [
       {
@@ -576,7 +527,7 @@ it('never puts expected stdout or its digest in the sandbox command payload', ()
   ).toBe(false);
 });
 
-it.skipIf(onWindows).each([
+it.each([
   {
     label: 'NPE frame',
     file: 'Greeting.java',

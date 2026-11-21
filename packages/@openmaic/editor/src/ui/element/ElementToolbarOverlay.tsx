@@ -60,7 +60,6 @@ export function ElementToolbarOverlay({
       role="toolbar"
       aria-label={labels.toolbar}
       data-toolbar-overlay=""
-      data-toolbar-anchor={elementIdPrefix + element.id}
       style={{
         left: position ? `${position.left}px` : '0px',
         position: 'fixed',

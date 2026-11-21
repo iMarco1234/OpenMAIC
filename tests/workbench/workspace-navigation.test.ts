@@ -4,7 +4,6 @@ import {
   currentPageIndex,
   parseRailWidth,
   presentWorkspaceSession,
-  RAIL_COLLAPSE_THRESHOLD,
   RAIL_WIDTH_DEFAULT,
   RAIL_WIDTH_MAX,
   RAIL_WIDTH_MIN,
@@ -18,7 +17,7 @@ describe('workspace navigation projection', () => {
     });
     expect(presentWorkspaceSession('queued')).toEqual({
       labelKey: 'workspace.sessionStatus.queued',
-      tone: 'waiting',
+      tone: 'live',
     });
     expect(presentWorkspaceSession('failed')).toEqual({
       labelKey: 'workspace.sessionStatus.failed',
@@ -52,13 +51,6 @@ describe('workspace navigation projection', () => {
 });
 
 describe('resizable rail width', () => {
-  it('only folds on a drag well past the minimum width', () => {
-    // An overshoot of the minimum must still just stop there; folding takes a
-    // deliberate pull, and the threshold is never above the minimum itself.
-    expect(RAIL_COLLAPSE_THRESHOLD).toBeLessThan(RAIL_WIDTH_MIN);
-    expect(RAIL_WIDTH_MIN - RAIL_COLLAPSE_THRESHOLD).toBeGreaterThanOrEqual(60);
-  });
-
   it('keeps a dragged width inside the supported range', () => {
     expect(clampRailWidth(280)).toBe(280);
     expect(clampRailWidth(40)).toBe(RAIL_WIDTH_MIN);

@@ -1,5 +1,3 @@
-import { HOST_STATE_START, HOST_STATE_END } from '@/lib/ai/request-state-tail';
-import { requestStateTail } from '@/lib/agent/runtime/request-state-tail';
 /** Real PG + local Python execution. Model decisions are driven explicitly through the role tools. No cloud or live model calls. */
 import { beforeAll, afterAll, describe, expect, it, vi, onTestFinished } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -192,18 +190,9 @@ vi.mock('@/lib/server/sandbox/providers/e2b-compatible', () => ({
       }
     }
     async initializeWorkspace() {}
-    async readText(id: string, _operation: string, path: string, _signal?: AbortSignal) {
+    async readText(id: string, _operation: string, path: string) {
       path = path.replace(/^\/home\/user\/project\//, '');
       return readFile(join(mocked.root, id, path), 'utf8');
-    }
-    async readTexts(id: string, operation: string, paths: readonly string[], signal?: AbortSignal) {
-      const pairs: [string, string][] = [];
-      for (const path of paths) {
-        signal?.throwIfAborted();
-        pairs.push([path, await this.readText(id, operation, path, signal)]);
-        signal?.throwIfAborted();
-      }
-      return Object.fromEntries(pairs);
     }
     async writeText(id: string, _operation: string, path: string, text: string) {
       path = path.replace(/^\/home\/user\/project\//, '');
@@ -544,18 +533,6 @@ async function runTools(
     expectedAttempt: meta!.attempt,
   });
 }
-function requestHostState(messages: readonly ModelMessage[]): string {
-  const tail = messages.at(-1);
-  expect(tail?.role).toBe('user');
-  if (!tail || typeof tail.content !== 'string') throw new Error('Missing wire-only host state');
-  expect(tail.content.startsWith(HOST_STATE_START + '\n')).toBe(true);
-  expect(tail.content.endsWith('\n' + HOST_STATE_END)).toBe(true);
-  return tail.content;
-}
-function retainedRequestMessages(messages: readonly ModelMessage[]): ModelMessage[] {
-  requestHostState(messages);
-  return messages.slice(0, -1);
-}
 async function invoke(
   config: Awaited<ReturnType<typeof teachingRunnerConfig>>,
   name: string,
@@ -564,25 +541,6 @@ async function invoke(
   const tool = config.tools.find((t) => t.name === name)!;
   expect(tool).toBeDefined();
   return tool.execute(randomUUID(), name === 'request_skill_review' ? reviewInput(args) : args);
-}
-function assertInitialPlanPreload(
-  config: Pick<Awaited<ReturnType<typeof teachingRunnerConfig>>, 'preloadMessages'>,
-  learnerText: string,
-  planText: string,
-) {
-  const user = { role: 'user' as const, content: learnerText, timestamp: Date.now() };
-  const model = { api: 'openai-completions' as const, provider: 'openai', id: 'test-model' };
-  const frames = config.preloadMessages([user], model);
-  expect(frames.map((frame) => frame.role)).toEqual(['assistant', 'toolResult']);
-  const receipt = frames[1]!;
-  if (receipt.role !== 'toolResult' || receipt.content[0]?.type !== 'text')
-    throw new Error('Missing file read');
-  expect(JSON.parse(receipt.content[0].text)).toMatchObject({
-    path: 'PLAN.md',
-    text: planText,
-    hash: digest(planText),
-  });
-  expect(config.preloadMessages([user, ...frames], model)).toEqual([]);
 }
 async function guided(role: 'teaching' | 'plan' | 'code') {
   const current = await store.get(studyId, principal.ownerId);
@@ -730,7 +688,7 @@ async function guided(role: 'teaching' | 'plan' | 'code') {
     attempt: meta!.attempt,
     signal: new AbortController().signal,
   });
-  expect(followUp.initialContext).toContain('"completionRecorded":true');
+  expect(followUp.systemPrompt).toContain('"completionRecorded":true');
   await agents.finishSession(binding.session_id, 'direct-worker', {
     status: 'succeeded',
     expectedAttempt: meta!.attempt,
@@ -1706,14 +1664,14 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
         expect(await agents.listUserMessages(queued.sessionId)).toEqual(realInputs);
         const request = mocked.modelRequests.at(-1)!;
         expect(request.at(-1)?.role).not.toBe('assistant');
-        expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain('Runtime continuation:');
+        expect(mocked.modelSystems.at(-1)).toContain('Runtime continuation:');
         const approved = await learningView(principal, id);
         if (approved.state.status === 'completed') return;
         expect(approved.actions).toContain('next');
         const completedPosition = approved.state.position;
         // A normal follow-up is not a request to revoke an already recorded review.
         await roleTurn('What should I do next?', async (config) => {
-          expect(config.initialContext).toContain('"completionRecorded":true');
+          expect(config.systemPrompt).toContain('"completionRecorded":true');
           expect(config.systemPrompt).toContain('ALREADY complete');
           expect(config.isTurnComplete()).toBe(false); // Answer the new question normally.
         });
@@ -1747,7 +1705,7 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
             expect(config.allowedToolNames.has('request_skill_review')).toBe(false);
             expect(config.allowedToolNames.has('complete_stage')).toBe(false);
           }
-          expect(config.initialContext).toContain('"automatic":true');
+          expect(config.systemPrompt).toContain('"automatic":true');
           expect(config.systemPrompt).toContain(
             `"currentStep":"${entered.milestones![entered.state.position.milestoneIndex]!.stages[entered.state.position.stageIndex]}"`,
           );
@@ -2065,7 +2023,7 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
         await invoke(config, 'request_skill_review', { question: 'Compare return and print.' });
       });
       await runTools(answer, async (config) => {
-        expect(config.initialContext).toContain('"studentResponseCount":1');
+        expect(config.systemPrompt).toContain('"studentResponseCount":1');
         expect(config.systemPrompt).not.toContain(answer);
         await invoke(config, 'read_next_skill', { studentFeedback: `Student reply: "${answer}"` });
         await invoke(config, 'request_skill_review', {
@@ -2076,14 +2034,14 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
         ).rejects.toThrow();
       });
       await runTools(first, async (config) => {
-        expect(config.initialContext).toContain('"studentResponseCount":1');
+        expect(config.systemPrompt).toContain('"studentResponseCount":1');
         expect(config.systemPrompt).not.toContain(first);
         expect(config.systemPrompt).not.toContain(answer);
         // A clarification turn does not replace the pending review or discard its first reply.
         await invoke(config, 'read_next_skill');
       });
       await runTools(second, async (config) => {
-        expect(config.initialContext).toContain('"studentResponseCount":2');
+        expect(config.systemPrompt).toContain('"studentResponseCount":2');
         expect(config.systemPrompt).not.toContain(first);
         expect(config.systemPrompt).not.toContain(second);
         expect(config.systemPrompt).not.toContain(answer);
@@ -2184,7 +2142,7 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       attempt: meta!.attempt,
       signal: new AbortController().signal,
     });
-    expect(config.initialContext).toContain('"automatic":true');
+    expect(config.systemPrompt).toContain('"automatic":true');
     await invoke(config, 'read_next_skill');
     await invoke(config, 'request_skill_review', { question: 'What will the project do?' });
     await expect(
@@ -2210,8 +2168,8 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       attempt: reply!.attempt,
       signal: new AbortController().signal,
     });
-    expect(replyConfig.initialContext).toContain('"automatic":false');
-    expect(replyConfig.initialContext).toContain('"studentResponseCount":1');
+    expect(replyConfig.systemPrompt).toContain('"automatic":false');
+    expect(replyConfig.systemPrompt).toContain('"studentResponseCount":1');
     await agents.finishSession(started.sessionId, 'reply-worker', {
       status: 'succeeded',
       expectedAttempt: reply!.attempt,
@@ -3590,8 +3548,8 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
     await stream({} as never, { messages: [] });
     expect(project).toHaveBeenCalledTimes(2);
     expect(modelCall).toHaveBeenCalledOnce();
-    expect(requestStateTail(modelCall.mock.calls[0]![1])).toContain('"revision":2');
-    expect(requestStateTail(modelCall.mock.calls[0]![1])).not.toContain('"revision":1');
+    expect(modelCall.mock.calls[0]![1].systemPrompt).toContain('"revision":2');
+    expect(modelCall.mock.calls[0]![1].systemPrompt).not.toContain('"revision":1');
     const churn = vi.fn(async (context) => {
       revision++;
       return context;
@@ -4843,61 +4801,6 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
     15_000,
   );
 
-  it('opens earlier milestone history without mixing it into the live transcript', async () => {
-    const lab = installedProject({ id: 'greeting-python-lab', version: '1.2.0' });
-    const study = await unpreparedStudy(lab);
-    const [first, second] = lab.definition.milestones;
-    const position = { milestoneId: second.id, milestoneIndex: 1, stageIndex: 0 };
-    await pool.query(
-      "UPDATE pbl_v3_studies SET state=jsonb_set(state,'{position}',$2::jsonb) WHERE id=$1",
-      [study.id, JSON.stringify(position)],
-    );
-    const addDiscussion = async (milestoneId: string, text: string) => {
-      const sessionId = `history-${randomUUID()}`;
-      await agents.createSession({
-        id: sessionId,
-        ownerId: principal.ownerId,
-        stageId: 'classroom',
-        prompt: 'Teaching history',
-        status: 'succeeded',
-      });
-      await pool.query(
-        `INSERT INTO pbl_v3_roles(session_id,study_id,role,context_key,stage_key)
-         VALUES($1,$2,'discussion',$3,$4)`,
-        [sessionId, study.id, milestoneId, `${milestoneId}:0`],
-      );
-      await agents.appendControlEvent(sessionId, {
-        ts: Date.now(),
-        type: 'user_message',
-        data: { text },
-      });
-      return {
-        sessionId,
-        milestoneId,
-        role: 'discussion',
-        through: await agents.lastEventSeq(sessionId),
-      };
-    };
-    const older = await addDiscussion(first.id, 'Earlier learner message');
-    const current = await addDiscussion(second.id, 'Current learner message');
-    const view = await learningView(principal, study.id, { passive: true });
-    expect(view.conversationHistory).toEqual([current, older]);
-    expect(JSON.stringify(view.conversation)).toContain('Current learner message');
-    expect(JSON.stringify(view.conversation)).not.toContain('Earlier learner message');
-
-    const { conversationPage } = await import('@/lib/server/pbl-v3/conversation-page');
-    const page = await conversationPage(
-      principal,
-      new URLSearchParams({
-        id: study.id,
-        sessionId: older.sessionId,
-        through: String(older.through),
-      }),
-    );
-    expect(JSON.stringify(page.conversation)).toContain('Earlier learner message');
-    expect((await store.get(study.id, principal.ownerId)).state.position).toEqual(position);
-  });
-
   it('bounds a multi-call turn and pages every saved message without replaying snapshots', async () => {
     const study = await freshStudy();
     onTestFinished(async () => {
@@ -4976,7 +4879,6 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       sessionId: queued.sessionId,
       through,
       role: 'discussion',
-      milestoneId: view.state.position.milestoneId,
     });
 
     // New updates must not move the frozen history window or change its cursors.
@@ -5153,95 +5055,6 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       failure: 'timeout',
       failureCode: 'MODEL_REQUEST_IDLE_TIMEOUT',
     });
-  });
-
-  it('rejects feedback for an unopened section instead of silently reopening the first lesson', async () => {
-    const study = await freshStudy(),
-      opening = (await study.send('begin')) as { sessionId: string };
-    const claim = await agents.claimNextSession('unopened-review-worker', process.pid, {
-      sessionId: opening.sessionId,
-      leaseTtlMs: 10000,
-      maxAttempts: 5,
-    });
-    const config = await teachingRunnerConfig({
-      sessionId: opening.sessionId,
-      ownerId: principal.ownerId,
-      workerId: 'unopened-review-worker',
-      attempt: claim!.attempt,
-      signal: new AbortController().signal,
-    });
-    await expect(
-      invoke(config, 'read_next_skill', { studentFeedback: 'The learner answered section C.' }),
-    ).rejects.toThrow('No active section is open');
-    expect((await store.binding(opening.sessionId))?.guided?.activeFile).toBeFalsy();
-    await invoke(config, 'request_skill_review', {
-      response: 'Project welcome.\n\nReady to begin?',
-    });
-    await agents.finishSession(opening.sessionId, 'unopened-review-worker', {
-      status: 'succeeded',
-      expectedAttempt: claim!.attempt,
-    });
-  });
-  it('gives the correct next action for missing evidence before any cloud read and preserves review recovery', async () => {
-    const original = studyId,
-      study = await freshTeachingStudy();
-    studyId = study.id;
-    try {
-      await runTools('Please continue.', async (config) => {
-        const read = vi.spyOn(E2BCompatibleSandboxProvider.prototype, 'readTexts');
-        try {
-          for (const reuseFeedback of [false, true])
-            await expect(
-              invoke(config, 'read_next_skill', {
-                studentFeedback: 'An old unrelated answer is enough.',
-                reuseFeedback,
-              }),
-            ).rejects.toThrow('feedbackSource=null');
-          expect(read).not.toHaveBeenCalled();
-        } finally {
-          read.mockRestore();
-        }
-        await invoke(config, 'request_skill_review', {
-          response: 'Current explanation.\n\nHow will the caller use the returned value?',
-        });
-      });
-    } finally {
-      studyId = original;
-    }
-  });
-
-  it('binds a learner review to one fresh bulk snapshot and displays its committed response immediately', async () => {
-    const original = studyId,
-      study = await freshTeachingStudy();
-    studyId = study.id;
-    try {
-      await runTools('Please explain this section.', async (config) => {
-        const batch = vi.spyOn(E2BCompatibleSandboxProvider.prototype, 'readTexts');
-        const response =
-          'Look at the current program.\n\nWhich behavior should the next change preserve?';
-        try {
-          await invoke(config, 'request_skill_review', { response });
-          expect(batch).toHaveBeenCalledTimes(1);
-        } finally {
-          batch.mockRestore();
-        }
-        const binding = (await store.binding((await store.roles(study.id))[0].session_id))!;
-        expect(binding.guided?.pending?.displayText).toBe(response);
-        const row = await store.get(study.id, principal.ownerId);
-        const sandbox = await SandboxService.forOwner(principal);
-        const expected = filesFingerprint(await readFiles(sandbox, row));
-        expect(binding.guided?.pending?.artifactDigest).toBe(expected);
-        const view = await learningView(principal, study.id, { passive: true });
-        expect(
-          view.conversation
-            ?.flatMap((e) => e.parts)
-            .some((p) => p.kind === 'text' && p.text === response),
-        ).toBe(true);
-        expect(config.isTurnComplete()).toBe(true);
-      });
-    } finally {
-      studyId = original;
-    }
   });
 
   it('keeps a large reply whole while the committed review question awaits its display event', async () => {
@@ -5483,9 +5296,14 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
     await expect(command('next')).rejects.toThrow('not available');
     await runTools('Please help me fix the failed greeting test.', async (config) => {
       expect(config.systemPrompt).toContain('observed test failure');
-      expect(config.systemPrompt).toContain('repair the permitted source directly');
-      expect(config.systemPrompt).toContain('Do not require a PLAN.md edit');
       const current = await service.readText(environmentId, 'greeting.py');
+      await expect(
+        invoke(config, 'write_file', {
+          path: 'PLAN.md',
+          text: 'overwrite',
+          expectedHash: digest(''),
+        }),
+      ).rejects.toThrow('cannot write');
       await invoke(config, 'write_file', {
         path: 'greeting.py',
         text: code + '\n# repaired\n',
@@ -5557,7 +5375,7 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       // Reflection has its own disclosure and completion receipt.
       const mentor = (await store.roles(studyId)).find((binding) => binding.role === 'mentor')!;
       expect(mentor.stage_key).toBe('greeting:6');
-      expect(config.initialContext).toContain(
+      expect(config.systemPrompt).toContain(
         '"teachingContext":{"stageKey":"greeting:6","completionRecorded":false,',
       );
       expect(config.systemPrompt).toContain('"recordedEvidence"');
@@ -5752,16 +5570,12 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
     expect(settled?.status, settled?.error).toBe('succeeded');
     expect((await store.binding(queued.sessionId))?.guided?.activeFile).toBe('A-teach.md');
     expect(await agents.listUserMessages(queued.sessionId)).toEqual(inputs);
-    expect(retainedRequestMessages(mocked.modelRequests[retryRequestIndex]!).at(-1)).toMatchObject({
+    expect(mocked.modelRequests[retryRequestIndex]?.at(-1)).toMatchObject({
       role: 'user',
       content: reply,
     });
-    expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain(
-      '\"activeSection\":\"A-teach.md\"',
-    );
-    expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain(
-      'Authoritative live teaching state',
-    );
+    expect(mocked.modelSystems.at(-1)).toContain('\"activeSection\":\"A-teach.md\"');
+    expect(mocked.modelSystems.at(-1)).toContain('Authoritative live teaching state');
     expect((await learningView(principal, study.id)).actions).not.toContain('next');
     studyId = original;
   }, 30000);
@@ -5804,9 +5618,9 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
         { ...meta!, ...(await agents.getSession(queued.sessionId))! },
       );
       expect(mocked.modelCalls - callsBefore).toBe(3);
-      expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain(JSON.stringify(delivered));
-      expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain('record that SAME reply');
-      expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain('verbatim into response');
+      expect(mocked.modelSystems.at(-1)).toContain(JSON.stringify(delivered));
+      expect(mocked.modelSystems.at(-1)).toContain('record that SAME reply');
+      expect(mocked.modelSystems.at(-1)).toContain('verbatim into response');
       expect((await agents.getSession(queued.sessionId))?.status).toBe('succeeded');
       expect(await agents.listUserMessages(queued.sessionId)).toEqual(inputs);
       expect((await store.binding(queued.sessionId))?.guided?.pending?.question).toBe(question);
@@ -5973,7 +5787,7 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       expect(mocked.modelCalls - calls).toBe(crash ? 1 : 2);
       expect((await agents.getSession(sessionId))!.status).toBe('succeeded');
       expect((await store.binding(sessionId))!.guided!.pending).toEqual(pending);
-      expect(requestHostState(mocked.modelRequests.at(-1)!)).toContain(
+      expect(mocked.modelSystems.at(-1)).toContain(
         'For an assistance-only answer or product clarification',
       );
       if (crash)
@@ -6216,10 +6030,7 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
           (m) => m.role === 'assistant' && Array.isArray(m.content) && m.content.length === 0,
         ),
       ).toEqual([]);
-      expect(retainedRequestMessages(request).at(-1)).toMatchObject({
-        role: 'user',
-        content: reply,
-      });
+      expect(request.at(-1)).toMatchObject({ role: 'user', content: reply });
       const assistantParts = request.flatMap((m) =>
         m.role === 'assistant' && Array.isArray(m.content) ? m.content : [],
       );
@@ -6668,13 +6479,13 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
     const ready = new Promise<void>((resolve) => {
       entered = resolve;
     });
-    const original = SandboxService.prototype.readTexts;
+    const original = SandboxService.prototype.readText;
     const read = vi
-      .spyOn(SandboxService.prototype, 'readTexts')
-      .mockImplementationOnce(async function (this: SandboxService, id, paths, signal) {
+      .spyOn(SandboxService.prototype, 'readText')
+      .mockImplementationOnce(async function (this: SandboxService, id, path) {
         entered();
         await gate;
-        return original.call(this, id, paths, signal);
+        return original.call(this, id, path);
       });
     try {
       const tool = config.tools.find((t) => t.name === 'request_skill_review')!;
@@ -7767,105 +7578,6 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
       original + '# learner repair\n',
     );
   });
-  it('retests a learner-amended plan and restores its passing checkpoint', async () => {
-    const previousStudyId = studyId;
-    const previousEvaluation = project.evaluations.greeting!;
-    onTestFinished(() => {
-      studyId = previousStudyId;
-      project.evaluations.greeting = previousEvaluation;
-    });
-    studyId = (await freshStudy()).id;
-    const row = await store.get(studyId, principal.ownerId);
-    const environmentId = row.environment_id!;
-    const service = await SandboxService.forOwner(principal);
-    const originalPlan = await service.readText(environmentId, 'PLAN.md');
-    const originalCode = await service.readText(environmentId, 'greeting.py');
-    const originalPlanId = randomUUID();
-    const collected = row.state.collected.greeting!;
-    row.state.position.stageIndex = 4;
-    row.state.milestones[0]!.stageIndex = 4;
-    collected.plan = {
-      kind: 'plan',
-      id: originalPlanId,
-      milestoneId: 'greeting',
-      revision: 0,
-      contentHash: digest(originalPlan),
-      contentLength: originalPlan.length,
-    };
-    collected.planReviewCompleted = true;
-    collected.code = {
-      kind: 'code',
-      id: randomUUID(),
-      milestoneId: 'greeting',
-      revision: 0,
-      workspaceRevisionId: 'before-repair',
-      value: 'Reviewed sandbox files',
-    };
-    await store.transaction((db) => store.commit(db, row, { state: row.state, events: [] }));
-    project.evaluations.greeting = {
-      ...previousEvaluation,
-      cases: [
-        {
-          id: 'plan-record',
-          label: 'Plan record',
-          argv: [
-            'python3',
-            '-c',
-            'from pathlib import Path; print("pass" if "CHOICE = format" in Path("PLAN.md").read_text() else "missing")',
-          ],
-          stdout: 'pass\n',
-        },
-      ],
-    };
-    const save = (text: string, expectedHash: string) =>
-      command('save', { path: 'PLAN.md', text, expectedHash });
-    await expect(save('Early plan edit', digest(originalPlan))).rejects.toThrow('not available');
-    await command('evaluate');
-    await command('collect');
-    expect((await learningView(principal, studyId)).state.collected.greeting!.tests?.status).toBe(
-      'failed',
-    );
-    const learnerEdit = originalPlan + '\nClarify the chosen formatting approach.\n';
-    await save(learnerEdit, digest(originalPlan));
-    await expect(save('Stale plan edit', digest(originalPlan))).rejects.toThrow('changed');
-    const amendedPlan = learnerEdit + '\nCHOICE = format\n';
-    await runTools('Please add my selected format record to PLAN.md.', async (config) => {
-      await invoke(config, 'read_file', { path: 'PLAN.md' });
-      await invoke(config, 'write_file', {
-        path: 'PLAN.md',
-        text: amendedPlan,
-        expectedHash: digest(learnerEdit),
-      });
-    });
-    await command('evaluate');
-    await expect(save('Edit during evaluation', digest(amendedPlan))).rejects.toMatchObject({
-      reason: 'WORKBENCH_ACCESS_DENIED',
-    });
-    await command('collect');
-    const tested = (await learningView(principal, studyId)).state.collected.greeting!;
-    expect(tested.plan).toMatchObject({ contentHash: digest(amendedPlan), revision: 1 });
-    expect(tested.plan!.id).not.toBe(originalPlanId);
-    expect(tested.tests).toMatchObject({ status: 'passed', planArtifactId: tested.plan!.id });
-    expect(tested.planReviewCompleted).toBe(false);
-    expect(await service.readText(environmentId, 'greeting.py')).toBe(originalCode);
-    expect(
-      (
-        await pool.query(
-          "SELECT actor FROM pbl_v3_evidence WHERE study_id=$1 AND kind='file-edit' AND detail->>'path'='PLAN.md' ORDER BY id",
-          [studyId],
-        )
-      ).rows,
-    ).toEqual([{ actor: 'learner' }, { actor: 'coder' }]);
-    await expect(save('Late plan edit', digest(amendedPlan))).rejects.toThrow('not available');
-    await command('next');
-    mocked.missing.add(environmentId);
-    await rm(join(mocked.root, environmentId), { recursive: true });
-    await command('prepare');
-    const restored = await store.get(studyId, principal.ownerId);
-    expect(restored.state.position.stageIndex).toBe(5);
-    expect(restored.state.collected.greeting!.tests?.id).toBe(tested.tests!.id);
-    expect(await service.readText(restored.environment_id!, 'PLAN.md')).toBe(amendedPlan);
-  });
   it('integrates scoped files, command evidence, terminal controls and recovery without project previews', async () => {
     const fresh = await freshStudy();
     let row = await store.get(fresh.id, principal.ownerId);
@@ -8264,8 +7976,6 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
             await writeFile(path, 'Learner plan '.repeat(4000));
             const expanded = await teachingRunnerConfig(request);
             expect(expanded.systemPrompt).toContain('Learner plan '.repeat(4000));
-            if (active.kind === 'produce' && active.writes === 'plan')
-              assertInitialPlanPreload(expanded, text, 'Learner plan '.repeat(4000));
             expect(mocked.modelCalls).toBe(calls);
             oversizedPlanChecked = true;
           } finally {
@@ -11078,8 +10788,8 @@ describe.skipIf(!url)('PBL v3 teaching runtime with real PG', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const original = SandboxService.prototype.readTexts;
-    const read = vi.spyOn(SandboxService.prototype, 'readTexts').mockImplementation(async function (
+    const original = SandboxService.prototype.readText;
+    const read = vi.spyOn(SandboxService.prototype, 'readText').mockImplementation(async function (
       this: SandboxService,
       ...args
     ) {

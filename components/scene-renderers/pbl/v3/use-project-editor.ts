@@ -32,28 +32,21 @@ export function useProjectEditor(
   const [tabs, setTabs] = useState(initial.tabs.length ? initial.tabs : ['PLAN.md']);
   const [buffers, setBuffers] = useState<Record<string, EditorBuffer>>(initial.buffers);
   const [loading, setLoading] = useState(false);
-  // Keep cached content visible, but do not accept edits until its fresh read succeeds.
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveFailures, setSaveFailures] = useState<{
-    pausedFile: string | null;
-    errors: Record<string, string>;
-  }>({ pausedFile: null, errors: {} });
+  const [saveError, setSaveError] = useState('');
   const [readErrors, setReadErrors] = useState<
     Record<string, { source: ReturnType<typeof editorSource>; message: string }>
   >({});
   const readTickets = useRef(new Map<string, number>());
-  // Only display verified buffers during background refreshes. Persisted drafts
-  // and changed sources/revisions still require their normal recovery read.
-  const verifiedReads = useRef(new Map<string, { source: string | null; revision: number }>());
   const [recoveryConflicts, setRecoveryConflicts] = useState<Record<string, string>>({});
   const sequence = useRef(0),
     mounted = useRef(true);
-  const inFlight = useRef<Promise<void> | null>(null);
-  const retrySaves = useRef(
-    new Map<string, { name: string; buffer: EditorBuffer; request: FileSaveRequest }>(),
+  const inFlight = useRef<Promise<void> | null>(null),
+    failed = useRef(false);
+  const retrySave = useRef<{ name: string; buffer: EditorBuffer; request: FileSaveRequest } | null>(
+    null,
   );
-  const unavailableSaves = useRef(new Map<string, string>());
+  const unavailableSave = useRef<{ name: string; environment: string } | null>(null);
   const current = useRef({
     view,
     buffers,
@@ -63,23 +56,8 @@ export function useProjectEditor(
     path,
     options,
     recoveryConflicts,
-    refreshing,
-    readErrors,
-    saveFailures,
   });
-  current.current = {
-    view,
-    buffers,
-    read,
-    onError,
-    onSave,
-    path,
-    options,
-    recoveryConflicts,
-    refreshing,
-    readErrors,
-    saveFailures,
-  };
+  current.current = { view, buffers, read, onError, onSave, path, options, recoveryConflicts };
   const updateBuffers = useCallback(
     (update: (previous: Record<string, EditorBuffer>) => Record<string, EditorBuffer>) => {
       const next = update(current.current.buffers);
@@ -87,54 +65,6 @@ export function useProjectEditor(
       setBuffers(next);
     },
     [],
-  );
-  const updateReadErrors = useCallback(
-    (update: (previous: typeof readErrors) => typeof readErrors) => {
-      // A save receipt can drain the next draft before React renders the failed read.
-      const next = update(current.current.readErrors);
-      current.current.readErrors = next;
-      setReadErrors(next);
-    },
-    [],
-  );
-  const updateSaveFailures = useCallback(
-    (update: (previous: typeof saveFailures) => typeof saveFailures) => {
-      // Retrying one file never authorizes another file's failed submission.
-      const next = update(current.current.saveFailures);
-      current.current.saveFailures = next;
-      setSaveFailures(next);
-    },
-    [],
-  );
-  const clearSaveFailure = useCallback(
-    (name: string, resumeQueue = false) =>
-      updateSaveFailures((previous) => {
-        const hasError = Object.hasOwn(previous.errors, name);
-        const pausedFile = resumeQueue || previous.pausedFile === name ? null : previous.pausedFile;
-        if (!hasError && pausedFile === previous.pausedFile) return previous;
-        const errors = hasError ? { ...previous.errors } : previous.errors;
-        if (hasError) delete errors[name];
-        return { pausedFile, errors };
-      }),
-    [updateSaveFailures],
-  );
-  const updateRecoveryConflicts = useCallback(
-    (update: (previous: typeof recoveryConflicts) => typeof recoveryConflicts) => {
-      // The queue must see a conflict before another file's receipt can drain it.
-      const next = update(current.current.recoveryConflicts);
-      current.current.recoveryConflicts = next;
-      setRecoveryConflicts(next);
-    },
-    [],
-  );
-  const clearFileFailure = useCallback(
-    (name: string) => {
-      retrySaves.current.delete(name);
-      unavailableSaves.current.delete(name);
-      // Recovering one file must not authorize retrying another failed write.
-      clearSaveFailure(name);
-    },
-    [clearSaveFailure],
   );
   useEffect(() => {
     mounted.current = true;
@@ -151,7 +81,7 @@ export function useProjectEditor(
   }, [view.id, path, tabs, buffers, onError]);
   const dirty = (name: string) => !!buffers[name] && buffers[name].text !== buffers[name].saved;
   const load = useCallback(
-    async (discard = false, name = current.current.path, background = false) => {
+    async (discard = false, name = current.current.path) => {
       const { view, read } = current.current;
       const path = name;
       if ((!view.environment?.ready && !view.completedFilesAvailable) || !view.files.includes(path))
@@ -159,7 +89,6 @@ export function useProjectEditor(
       const active = path === current.current.path;
       const ticket = active ? ++sequence.current : sequence.current;
       const source = editorSource(view);
-      const baseHash = current.current.buffers[path]?.hash;
       const readTicket = (readTickets.current.get(path) ?? 0) + 1;
       readTickets.current.set(path, readTicket);
       const isCurrent = () =>
@@ -169,19 +98,11 @@ export function useProjectEditor(
         view.id === current.current.view.id &&
         source === editorSource(current.current.view) &&
         current.current.view.files.includes(path);
-      if (active) {
-        setLoading(!background);
-        setRefreshing(background);
-      }
+      if (active) setLoading(true);
       try {
         const result = await read(path);
         if (!isCurrent()) return;
-        // A save can finish while a non-blocking read is in flight. Its newer
-        // acknowledged base wins over that read, even if typing is now clean.
-        if (background && current.current.buffers[path]?.hash !== baseHash) return;
-        const retryingRead = current.current.readErrors[path]?.source === source;
-        verifiedReads.current.delete(path);
-        updateReadErrors((previous) => {
+        setReadErrors((previous) => {
           if (previous[path]?.source !== source) return previous;
           const next = { ...previous };
           delete next[path];
@@ -189,17 +110,20 @@ export function useProjectEditor(
         });
         const existing = current.current.buffers[path];
         const clearRecoveredFailure = () => {
-          const rejectedEnvironment = unavailableSaves.current.get(path),
-            retry = retrySaves.current.get(path);
+          const rejected = unavailableSave.current,
+            retry = retrySave.current;
           if (
-            (rejectedEnvironment !== undefined && rejectedEnvironment === existing?.environment) ||
+            (rejected?.name === path && rejected.environment === existing?.environment) ||
             (retry?.name === path && retry.buffer.environment === existing?.environment)
           ) {
-            clearFileFailure(path);
+            unavailableSave.current = null;
+            retrySave.current = null;
+            failed.current = false;
+            setSaveError('');
           }
         };
         const clearConflict = () =>
-          updateRecoveryConflicts((previous) => {
+          setRecoveryConflicts((previous) => {
             if (!previous[path]) return previous;
             const next = { ...previous };
             delete next[path];
@@ -207,10 +131,9 @@ export function useProjectEditor(
           });
         // Server updates and Agent writes refresh clean documents; a late read never erases typing.
         if (!discard && existing && existing.text !== existing.saved) {
-          const needsRecoveryRead = unavailableSaves.current.has(path);
-          const retry = retrySaves.current.get(path);
-          if (existing.environment === editorSource(view) && !needsRecoveryRead && !retryingRead)
-            return;
+          const rejected = unavailableSave.current;
+          const retry = retrySave.current;
+          if (existing.environment === editorSource(view) && rejected?.name !== path) return;
           const savedSubmission =
             result.text === existing.text ||
             (retry?.name === path &&
@@ -219,7 +142,7 @@ export function useProjectEditor(
           // A replacement environment is not permission to rebase over another writer.
           // Reattach only a verified base or a submission observed in the restored file.
           if (result.hash !== existing.hash && !savedSubmission) {
-            updateRecoveryConflicts((previous) =>
+            setRecoveryConflicts((previous) =>
               previous[path] === editorSource(view)
                 ? previous
                 : { ...previous, [path]: editorSource(view)! },
@@ -243,70 +166,54 @@ export function useProjectEditor(
                 }
               : previous;
           });
-          // A successful read of the old base does not acknowledge an uncertain write.
-          if (existing.environment !== source || needsRecoveryRead || savedSubmission)
-            clearRecoveredFailure();
+          clearRecoveredFailure();
           return;
         }
         clearConflict();
-        verifiedReads.current.set(path, { source, revision: view.revision });
         updateBuffers((previous) => ({
           ...previous,
           [path]: { ...result, saved: result.text, environment: editorSource(view)! },
         }));
         if (
           discard ||
-          (unavailableSaves.current.has(path) &&
-            unavailableSaves.current.get(path) === existing?.environment)
+          (unavailableSave.current?.name === path &&
+            unavailableSave.current.environment === existing?.environment)
         ) {
-          clearFileFailure(path);
+          failed.current = false;
+          retrySave.current = null;
+          unavailableSave.current = null;
+          setSaveError('');
         }
       } catch (error) {
-        if (isCurrent()) {
-          verifiedReads.current.delete(path);
-          updateReadErrors((previous) => ({
+        if (isCurrent())
+          setReadErrors((previous) => ({
             ...previous,
             [path]: { source, message: (error as Error).message },
           }));
-        }
       } finally {
-        if (active && ticket === sequence.current) {
-          setLoading(false);
-          setRefreshing(false);
-        }
+        if (active && ticket === sequence.current) setLoading(false);
       }
     },
-    [updateBuffers, updateReadErrors, updateRecoveryConflicts, clearFileFailure],
+    [updateBuffers],
   );
   useEffect(() => {
     const { buffers } = current.current;
-    if (!view.environment?.ready && !view.completedFilesAvailable) verifiedReads.current.clear();
     const buffer = buffers[path];
-    const verified = verifiedReads.current.get(path);
-    const reusable =
-      buffer?.environment === selectedSource &&
-      verified?.source === selectedSource &&
-      verified?.revision === view.revision;
     if (
       !buffer ||
       buffer.text === buffer.saved ||
       buffer.environment !== selectedSource ||
-      unavailableSaves.current.has(path)
+      unavailableSave.current?.name === path
     )
-      // Shell writes need not advance the study revision. Keep revalidating
-      // clean files, but do not block a tab switch on an already verified read.
-      void load(false, path, reusable && !unavailableSaves.current.has(path));
-    else {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      void load();
+    else setLoading(false);
     // Recovery must include background tabs; otherwise their retained drafts
     // would keep the study dirty even after the visible file resumed saving.
     for (const [name, buffer] of Object.entries(buffers))
       if (
         name !== path &&
         buffer.text !== buffer.saved &&
-        (buffer.environment !== selectedSource || unavailableSaves.current.has(name))
+        (buffer.environment !== selectedSource || unavailableSave.current?.name === name)
       )
         void load(false, name);
     return () => {
@@ -326,25 +233,10 @@ export function useProjectEditor(
   const pump = useCallback((): Promise<void> => {
     if (inFlight.current) return inFlight.current;
     const run = async () => {
-      while (mounted.current && !current.current.saveFailures.pausedFile) {
-        const {
-          path: active,
-          buffers,
-          view,
-          options,
-          onSave,
-          recoveryConflicts,
-          readErrors,
-          saveFailures,
-        } = current.current;
+      while (mounted.current && !failed.current) {
+        const { path: active, buffers, view, options, onSave, recoveryConflicts } = current.current;
         if (!options.enabled) return;
-        // Keep each uncertain submission intact while another file can save.
-        const retry = Array.from(retrySaves.current.values()).find(
-          (entry) =>
-            !Object.hasOwn(saveFailures.errors, entry.name) &&
-            readErrors[entry.name]?.source !== editorSource(view) &&
-            recoveryConflicts[entry.name] !== editorSource(view),
-        );
+        const retry = retrySave.current;
         if (
           retry &&
           (retry.buffer.environment !== editorSource(view) ||
@@ -360,10 +252,8 @@ export function useProjectEditor(
             return (
               b &&
               b.text !== b.saved &&
-              !Object.hasOwn(saveFailures.errors, p) &&
               b.environment === editorSource(view) &&
               recoveryConflicts[p] !== editorSource(view) &&
-              readErrors[p]?.source !== editorSource(view) &&
               view.files.includes(p) &&
               options.canEdit(p)
             );
@@ -371,13 +261,13 @@ export function useProjectEditor(
         if (!name) return;
         const buffer = retry?.buffer ?? buffers[name];
         const request = retry?.request ?? { id: crypto.randomUUID() };
-        retrySaves.current.set(name, { name, buffer, request });
-        unavailableSaves.current.delete(name);
+        retrySave.current = { name, buffer, request };
+        unavailableSave.current = null;
         setSaving(true);
         try {
           const receipt = await onSave(name, buffer.text, buffer.hash, request);
-          retrySaves.current.delete(name);
-          unavailableSaves.current.delete(name);
+          retrySave.current = null;
+          unavailableSave.current = null;
           // Acknowledgements update the submitted base, never the newer local value.
           const cached = readEditorDraft(view.id);
           const draft = cached.buffers[name];
@@ -422,15 +312,13 @@ export function useProjectEditor(
               'ENVIRONMENT_CHANGED',
             ].includes(error.reason ?? '')
           ) {
-            retrySaves.current.delete(name);
+            retrySave.current = null;
             if (['ENVIRONMENT_UNAVAILABLE', 'ENVIRONMENT_CHANGED'].includes(error.reason ?? ''))
-              unavailableSaves.current.set(name, buffer.environment);
+              unavailableSave.current = { name, environment: buffer.environment };
           }
           if (mounted.current) {
-            updateSaveFailures((previous) => ({
-              pausedFile: name,
-              errors: { ...previous.errors, [name]: (error as Error).message },
-            }));
+            failed.current = true;
+            setSaveError((error as Error).message);
           }
           return;
         }
@@ -441,15 +329,13 @@ export function useProjectEditor(
       if (mounted.current) setSaving(false);
     });
     return inFlight.current;
-  }, [updateBuffers, updateSaveFailures]);
+  }, [updateBuffers]);
   useEffect(() => {
-    if (!options.enabled || current.current.saveFailures.pausedFile) return;
+    if (!options.enabled || failed.current) return;
     const timer = setTimeout(() => void pump(), AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [
     buffers,
-    readErrors,
-    saveFailures,
     options.enabled,
     view.environmentId,
     view.completedFilesAvailable,
@@ -464,12 +350,13 @@ export function useProjectEditor(
   };
   const close = (name: string) => {
     if (
-      (retrySaves.current.has(name) ||
-        unavailableSaves.current.has(name) ||
-        Object.hasOwn(current.current.saveFailures.errors, name)) &&
+      (retrySave.current?.name === name || unavailableSave.current?.name === name) &&
       !inFlight.current
     ) {
-      clearFileFailure(name);
+      retrySave.current = null;
+      failed.current = false;
+      unavailableSave.current = null;
+      setSaveError('');
     }
     if (tabs.length === 1 && name === 'PLAN.md') {
       void load(true);
@@ -484,36 +371,22 @@ export function useProjectEditor(
       delete next[name];
       return next;
     });
-    verifiedReads.current.delete(name);
     const next = tabs.filter((p) => p !== name);
     if (!next.length) next.push('PLAN.md');
     setTabs(next);
     if (path === name) setPath(next.at(-1)!);
   };
-  const saveErrorFor = (name: string) =>
-    Object.hasOwn(saveFailures.errors, name) ? saveFailures.errors[name] : undefined;
   return {
     path,
     tabs,
     buffer: buffers[path],
     loading,
-    refreshing,
     saving,
-    // While the queue is paused, keep its Retry entry point visible on healthy tabs.
-    saveError:
-      saveErrorFor(path) ??
-      (saveFailures.pausedFile ? saveErrorFor(saveFailures.pausedFile) : '') ??
-      '',
+    saveError,
     readError: readErrors[path]?.source === selectedSource ? readErrors[path].message : '',
     recoveryConflict: recoveryConflicts[path] === editorSource(view),
     dirty,
     anyDirty: Object.values(buffers).some((b) => b.text !== b.saved),
-    hasReadBlockedDraft: Object.entries(buffers).some(
-      ([name, buffer]) =>
-        buffer.text !== buffer.saved &&
-        buffer.environment === selectedSource &&
-        readErrors[name]?.source === selectedSource,
-    ),
     stale:
       !!buffers[path] &&
       (buffers[path].environment !== editorSource(view) ||
@@ -522,22 +395,20 @@ export function useProjectEditor(
     select,
     close,
     reload: () => load(true),
-    retryRead: () => load(),
     save: () => {
-      clearSaveFailure(current.current.path, true);
+      failed.current = false;
+      setSaveError('');
       return pump();
     },
     edit: (text: string) => {
-      const { path, view, options, recoveryConflicts, readErrors } = current.current;
+      const { path, view, options, recoveryConflicts } = current.current;
       const b = current.current.buffers[path];
       if (
-        current.current.refreshing ||
         !options.enabled ||
         !options.canEdit(path) ||
         !b ||
         b.environment !== editorSource(view) ||
         recoveryConflicts[path] === editorSource(view) ||
-        readErrors[path]?.source === editorSource(view) ||
         b.text === text
       )
         return;

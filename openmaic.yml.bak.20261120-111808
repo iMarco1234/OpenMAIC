@@ -1,0 +1,91 @@
+# OpenMAIC model configuration for local deployment in WorkBuddy
+#
+# Uses a local Ollama instance (qwen38-planner-128k) as the OpenAI-compatible
+# provider. Ollama exposes its OpenAI-compatible endpoint at
+# http://localhost:11434/v1 which speaks the same protocol OpenMAIC expects
+# for LLM slots.
+#
+# This file is read once at server startup. Restart after any change.
+
+providers:
+  # --- Primary LLM provider: local Ollama running qwen38-planner-128k -------
+  local:
+    preset: openai-compatible
+    baseUrl: http://localhost:11434/v1
+    # No API key needed for Ollama (accepts an empty string or a placeholder).
+    apiKey: ollama-local
+    models:
+      - qwen38-planner-128k:latest
+      - qwen3.8:27b-nvfp4
+      - qwen38-executor-8k:latest
+      - qwen38-executor-128k:latest
+
+  # --- Local TTS: Microsoft's free neural Chinese voices via edge-tts --------
+  # A tiny OpenAI-compatible proxy (tts-proxy/server.py) wraps edge-tts so this
+  # slot exposes a real voice catalogue with no API key. Run it first:
+  #   .venv-tts/bin/python3 tts-proxy/server.py   (listens on 127.0.0.1:8799)
+  # The first voice listed becomes the default; a "custom-tts" slot with a
+  # `voices` list replaces the built-in picker with these entries.
+  custom-tts:
+    preset: openai-tts
+    baseUrl: http://127.0.0.1:8799
+    apiKey: local-edge-tts   # placeholder; the proxy ignores auth
+    models:
+      - edge-tts
+    options:
+      defaultVoice: zh-CN-XiaoxiaoNeural
+    voices:
+      - id: zh-CN-XiaoxiaoNeural
+        name: 晓晓 · 温柔女声（语文/朗读）
+        language: zh-CN
+        gender: female
+      - id: zh-CN-YunxiNeural
+        name: 云希 · 阳光男声
+        language: zh-CN
+        gender: male
+      - id: zh-CN-YunyangNeural
+        name: 云扬 · 新闻男声（沉稳专业）
+        language: zh-CN
+        gender: male
+      - id: zh-CN-YunjianNeural
+        name: 云健 · 激情男声（体育/激励）
+        language: zh-CN
+        gender: male
+      - id: zh-CN-XiaoyiNeural
+        name: 晓伊 · 活泼女声
+        language: zh-CN
+        gender: female
+      - id: zh-CN-YunxiaNeural
+        name: 云夏 · 可爱男声（卡通/儿童）
+        language: zh-CN
+        gender: male
+
+slots:
+  # All language-model slots follow this default.
+  llm: local:qwen38-planner-128k:latest
+
+  # Course outline generation. Planner is a good fit here.
+  course.outline: local:qwen38-planner-128k:latest
+
+  # Course content generation. Planner also handles long-form content.
+  course.content: local:qwen38-planner-128k:latest
+
+  # The Pro workbench agent. Needs tool calling — qwen38-planner has `tools`
+  # capability, so it qualifies. Uses the OpenAI Chat Completions API.
+  agent:
+    model: local:qwen38-planner-128k:latest
+    api: openai-completions
+
+  # Turn off capabilities we don't need locally (avoid provider-required slots).
+  video: null
+  image: null
+  tts: custom-tts
+  asr: null
+  webSearch: null
+  document: null
+
+# The agent slot is locked so the runtime model is always the planner.
+lock:
+  - agent
+
+allowUserKeys: false

@@ -46,27 +46,13 @@ export interface LearningView {
   recovery: { checkpointRevision: number; progressReset: boolean } | null;
   state: PblSessionState;
   stage: StageDefinition;
-  milestones?: {
-    id: string;
-    title: string;
-    goal?: string;
-    outcome?: string;
-    concepts?: string[];
-    deliverables?: string[];
-    optional: boolean;
-    stages: string[];
-  }[];
+  milestones?: { id: string; title: string; optional: boolean; stages: string[] }[];
   role: AgentRole | null;
   actions: string[];
   files: string[];
   busy: boolean;
   conversation?: import('./conversation').LearningConversationEntry[];
-  conversationHistory?: {
-    sessionId: string;
-    through: number;
-    role: AgentRole;
-    milestoneId?: string;
-  }[];
+  conversationHistory?: { sessionId: string; through: number; role: AgentRole }[];
   activitySequence?: number;
   task?: { title: string; goal: string };
   messages: { role: 'user' | 'assistant'; text: string }[];

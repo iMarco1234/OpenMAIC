@@ -26,6 +26,7 @@
     "examplesLabel": "Примеры тем",
     "examplePython": "Python с нуля",
     "exampleFourier": "Преобразование Фурье на простых примерах",
+    "desktopOnly": "Для редактора и режима Pro используйте компьютер.",
     "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
     "greetingWithName": "Привет, {{name}}"
   },
@@ -88,7 +89,6 @@
     "exportFailed": "Ошибка экспорта",
     "classroomZip": "Экспорт ZIP класса",
     "classroomZipDesc": "Структура курса + медиафайлы",
-    "viewerCopyHint": "Нужна копия для редактирования? Скачайте её через «{{zip}}», затем в разделе «{{courses}}» нажмите «{{importLabel}}».",
     "html": "Экспорт в HTML",
     "htmlDesc": "Один офлайн-файл, который воспроизводится сам",
     "htmlWithNarration": "С озвучкой и видео",
@@ -113,7 +113,6 @@
       "emptyClassroom": "В этом курсе нет сцен.",
       "unsupportedScene": "Эта сцена недоступна в офлайн-экспорте.",
       "interactiveTitle": "Интерактивная сцена",
-      "interactiveMoreBelow": "Ниже есть ещё",
       "videoUnavailable": "Видео не входит в офлайн-экспорт",
       "quizSubmit": "Отправить",
       "quizRetry": "Попробовать снова",
@@ -247,9 +246,7 @@
       "toolCallingRequired": "Для чата класса нужна модель с поддержкой вызова инструментов. Выберите такую модель для слота класса в разделе Настройки → Настройка моделей курса. Если этим параметром управляет администратор, обратитесь к нему.",
       "geminiNativeRequired": "Для общения с Gemini нужен нативный Google. Добавьте Google (пресет google) в Настройки → Сервисы моделей, затем выберите его для «Класс» в разделе «Настройка моделей курса». Если конфигурацией управляет администратор, обратитесь к нему.",
       "emptyAgentResponses": "Агенты вернули пустые ответы; обсуждение остановлено. Попробуйте ещё раз или проверьте настройки модели.",
-      "streamInterrupted": "Поток данных неожиданно прервался; обсуждение не завершено. Попробуйте ещё раз.",
-      "teacherNoResponse": "Преподаватель не ответил. Попробуйте ещё раз.",
-      "teacherIncomplete": "Преподаватель не смог завершить ответ. Попробуйте ещё раз."
+      "streamInterrupted": "Поток данных неожиданно прервался; обсуждение не завершено. Попробуйте ещё раз."
     },
     "elementReference": {
       "whiteboardChanged": "Элемент доски изменился или больше недоступен. Выберите его заново или удалите ссылку перед отправкой.",
@@ -272,7 +269,6 @@
       "title": "Этот интерактив не удалось запустить",
       "dismiss": "Закрыть"
     },
-    "interactiveMoreBelow": "Ниже есть ещё",
     "tabs": {
       "lecture": "Заметки",
       "chat": "Чат"
@@ -349,27 +345,15 @@
     "confirmSwitchTitle": "Переключить сцену",
     "confirmSwitchMessage": "В данный момент идёт обсуждение. Переключение сцены завершит текущую тему. Продолжить?",
     "generatingNextPage": "Сцена генерируется, пожалуйста подождите...",
+    "courseComplete": "Курс завершён",
     "fullscreen": "Полный экран",
     "exitFullscreen": "Свернуть",
     "editCourse": "Редактировать курс",
     "doneEditing": "Завершить редактирование",
-    "editDisabledHint": "Редактирование недоступно на этой странице — откройте слайд курса, чтобы его отредактировать.",
-    "editToggle": "Правка",
-    "openInWorkspace": "Открыть в рабочем пространстве",
-    "openInWorkspaceHint": "Открыть в рабочем пространстве, чтобы продолжить работу над курсом в диалоге",
-    "makeOwnCourse": "Создать свой урок",
-    "makeOwnCourseHint": "Создайте собственный урок в рабочем пространстве",
-    "dock": {
-      "collapse": "Свернуть панель",
-      "expand": "Развернуть панель",
-      "resize": "Изменить высоту панели"
-    },
-    "chatPanel": {
-      "expand": "Показать панель беседы",
-      "collapse": "Скрыть панель беседы"
-    }
+    "proModeDisabledHint": "Редактирование недоступно на этой странице — откройте слайд курса, чтобы редактировать в Pro-режиме."
   },
   "edit": {
+    "proMode": "Pro",
     "undo": "Отменить",
     "redo": "Повторить",
     "courseHistory": {
@@ -597,19 +581,7 @@
       "whiteboardLatex": "Формула",
       "whiteboardTable": "Таблица",
       "action": "Действие",
-      "discussion": "Обсуждение",
-      "playVideo": "Воспроизвести видео",
-      "whiteboardChart": "Диаграмма",
-      "whiteboardLine": "Линия",
-      "whiteboardClear": "Очистить доску",
-      "whiteboardDelete": "Убрать элемент",
-      "whiteboardClose": "Закрыть доску",
-      "whiteboardCode": "Блок кода",
-      "whiteboardEditCode": "Изменить код",
-      "widgetHighlight": "Выделить в активности",
-      "widgetSetState": "Задать состояние активности",
-      "widgetAnnotation": "Подписать в активности",
-      "widgetReveal": "Показать в активности"
+      "discussion": "Обсуждение"
     },
     "element": {
       "toolbar": "Панель элемента",
@@ -674,6 +646,12 @@
     "timeline": {
       "title": "Сценарий закадрового текста",
       "regenAllTts": "Сгенерировать всю озвучку заново",
+      "voiceAll": "Озвучить всё",
+      "counts": "{{speech}} реплик · {{cue}} действий",
+      "panLeft": "Прокрутить влево",
+      "panRight": "Прокрутить вправо",
+      "collapseAxis": "Свернуть до оси",
+      "expandTrack": "Развернуть дорожку",
       "emptyHint": "Перетащите действия на ось, чтобы начать, или позвольте MAIC Agent сгенерировать закадровый текст.",
       "speechPlaceholder": "Введите эту реплику…",
       "reorder": "Перетащите для изменения порядка",
@@ -685,15 +663,13 @@
       "fieldElement": "Элемент",
       "fieldContent": "Содержимое",
       "addDiscussionExists": "Только одно обсуждение на сцену",
+      "discussionTerminal": "КОНЕЦ",
       "discussionTerminalHint": "Обсуждение закрепляется в конце сцены (одно на сцену)",
-      "discussionTopicPlaceholder": "Обязательно",
-      "discussionPromptPlaceholder": "Необязательно",
-      "discussionTopicLabel": "Тема обсуждения",
-      "discussionPromptLabel": "Подсказка",
+      "discussionTopicPlaceholder": "Тема обсуждения (обязательно)",
+      "discussionPromptPlaceholder": "Подсказка (необязательно)",
       "discussionAgent": "Инициатор",
       "discussionAgentUnset": "Не указан",
-      "addAction": "Добавить действие",
-      "fieldState": "Состояние"
+      "addAction": "Добавить действие"
     },
     "picker": {
       "title": "Вставить действие",
@@ -777,7 +753,8 @@
       "moveDown": "Переместить вниз",
       "removeFromClass": "Удалить из класса",
       "aiClassmates": "AI-одноклассники · {{count}}",
-      "addRole": "Добавить роль"
+      "addRole": "Добавить роль",
+      "shortTitle": "Состав"
     },
     "elementRef": {
       "remove": "移除引用 {{label}}",
@@ -788,6 +765,21 @@
     "dock": {
       "elementRefHint": "Ссылки на элементы — выберите элементы для следующего сообщения",
       "globalTools": "Общие инструменты"
+    }
+  },
+  "classroomComplete": {
+    "title": "Курс завершён",
+    "trailLabels": {
+      "slide": "страниц",
+      "quiz": "тестов",
+      "interactive": "интерактивов",
+      "pbl": "проектов"
+    },
+    "quizScoreLabel": "Верно {{correct}} из {{total}}",
+    "encouragement": {
+      "high": "Отлично — вы справились!",
+      "mid": "Хорошая работа — продолжайте.",
+      "low": "Неплохое начало — повторите ещё раз."
     }
   },
   "whiteboard": {
@@ -1101,7 +1093,6 @@
     "rename": "Переименовать",
     "renamePlaceholder": "Введите название класса",
     "renameFailed": "Не удалось переименовать класс",
-    "saveRefused": "Изменения не сохранены: у вас нет прав на редактирование этого урока.",
     "searchPlaceholder": "Поиск курсов...",
     "searchAriaLabel": "Поиск курсов",
     "clearSearch": "Очистить",
@@ -1446,8 +1437,6 @@
     "providerMiniMaxTTS": "MiniMax TTS",
     "providerXiaomiTTS": "Xiaomi MiMo TTS",
     "providerXiaomiASR": "Xiaomi MiMo ASR",
-    "providerDeepSeekTTS": "DeepSeek TTS",
-    "providerDeepSeekASR": "DeepSeek ASR",
     "providerGoogleTTS": "Google Gemini TTS",
     "providerLemonadeTTS": "Lemonade TTS (Локальный)",
     "providerBrowserNativeTTS": "Встроенный TTS браузера",
@@ -1493,8 +1482,6 @@
     "qwenCloneUploadShort": "Загрузить",
     "qwenCloneRefAudioHint": "Use a clean 5–60 second voice sample (10–20 seconds recommended). Audio is converted to 24 kHz mono PCM WAV.",
     "qwenCloneMigrationHint": "Этот сохранённый голос нужно клонировать заново. Загрузите исходную аудиозапись в настройках голоса.",
-    "qwenCloneNeedsReclone": "Нужно клонировать заново",
-    "qwenCloneRecloneRequired": "Этот сохранённый голос несовместим с текущей моделью клонирования. Загрузите исходную аудиозапись ещё раз, чтобы клонировать его заново.",
     "qwenCloneSaved": "Qwen cloned voice registered and saved",
     "qwenCloneSaveFailed": "Failed to register the Qwen cloned voice",
     "qwenCloneUnsupported": "Recording is not supported in this browser; upload an audio file instead.",
@@ -1861,8 +1848,6 @@
       "capVideo": "Генерация видео",
       "capWebSearch": "Веб-поиск",
       "capWebFetch": "Загрузка веб-страниц",
-      "capAsr": "Распознавание речи",
-      "capDocument": "Обработка документов",
       "saved": "Настройки подключения сохранены",
       "stageInteractive": "Интерактив",
       "stageSlide": "Слайды",
@@ -2193,10 +2178,6 @@
         "webFetch": {
           "name": "Загрузка веб-страниц",
           "desc": "Позволяет агенту читать разрешённые в сеансе веб-страницы."
-        },
-        "materialChapters": {
-          "name": "Распознавание глав",
-          "desc": "Определяет главы и разделы в длинных документах."
         }
       },
       "source": {
@@ -2212,9 +2193,7 @@
           "search": "Поиск",
           "fetch": "Чтение",
           "image": "Изобр.",
-          "video": "Видео",
-          "parse": "Разбор",
-          "chapters": "Главы"
+          "video": "Видео"
         }
       },
       "empty": {
@@ -2249,9 +2228,7 @@
     "webFetchSettings": "Загрузка веб-страниц",
     "webFetchHint": "Выберите способ чтения веб-страниц. Размещённым сервисам передаются только публичные URL, разрешённые в сеансе. Результаты остаются недоверенными данными; при ошибке сервис не меняется.",
     "webFetchApiKey": "Ключ API",
-    "webFetchSharedKeyHint": "Этот ключ также используется для чата с этим провайдером. Его изменение или удаление влияет на чат.",
-    "autoConfirmRecommended": "Автоматически подтверждать рекомендуемые ответы",
-    "autoConfirmRecommendedDesc": "Если агент задаёт вопрос с рекомендуемым вариантом и вы не отвечаете, он выбирается после короткого отсчёта. Любое действие останавливает отсчёт."
+    "webFetchSharedKeyHint": "Этот ключ также используется для чата с этим провайдером. Его изменение или удаление влияет на чат."
   },
   "workspace": {
     "knowledgeBase": {
@@ -2287,11 +2264,6 @@
         "processing_interrupted": {
           "label": "Обработка не завершена",
           "description": "Не удалось завершить обработку. Можно повторить попытку позже."
-        },
-        "pages_failed": {
-          "label": "Не удалось обработать страницы PDF",
-          "description": "Не удалось обработать страницы {{firstPage}}–{{lastPage}} PDF, поэтому этот материал пока нельзя прочитать. Попробуйте обработать его позже.",
-          "descriptionWithoutCount": "Не удалось обработать некоторые страницы PDF, поэтому этот материал пока нельзя прочитать. Попробуйте обработать его позже."
         },
         "too_many_pages": {
           "label": "Слишком много страниц",
@@ -2395,7 +2367,6 @@
     "sceneCount_one": "{{count}} 页",
     "sceneCount_other": "{{count}} 页",
     "courseLinkHint": "在右侧打开《{{name}}》",
-    "courseLinkOpen": "Открыть",
     "courseLinkMore": "还有 {{count}} 节课堂",
     "courseMention": {
       "search": "Поиск классов и материалов",
@@ -2427,6 +2398,7 @@
     "heroSubtitle": "Share an idea and turn it into a learning journey people can step into",
     "newSession": "New chat",
     "sections": {
+      "courses": "Courses",
       "sessions": "Chats"
     },
     "coursesEmpty": "No courses yet",
@@ -2435,6 +2407,8 @@
     "loadFailed": "Couldn't load",
     "retry": "Retry",
     "untitledSession": "Untitled chat",
+    "pagePosition": "Page {{index}} of {{total}}",
+    "exitPro": "Exit Pro",
     "navAria": "Workspace navigation",
     "homeAria": "Back to home",
     "currentSession": "Current chat",
@@ -2443,7 +2417,7 @@
     "learningMode": "Учиться",
     "editingMode": "Править",
     "editingUnavailableGenerating": "Редактирование недоступно во время создания курса.",
-    "editGuide": "Руководство по редактированию",
+    "fullscreenLearning": "Учиться на весь экран",
     "time": {
       "justNow": "Just now",
       "minutesAgo": "{{count}}m ago",
@@ -2456,10 +2430,11 @@
       "running": "Running",
       "succeeded": "Ready",
       "failed": "Needs attention",
-      "cancelled": "Stopped",
-      "awaitingAnswer": "Ждёт вашего ответа"
+      "cancelled": "Stopped"
     },
     "backToWorkspace": "Back to workspace",
+    "searchPlaceholder": "Filter by name",
+    "searchAria": "Search {{section}}",
     "searchEmpty": "No matches",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
@@ -2472,8 +2447,6 @@
     "expandNavInto": "Expand navigation · {{section}}",
     "collapseChat": "Collapse conversation",
     "expandChat": "Conversation",
-    "talkAboutCourse": "Изменить с ИИ",
-    "talkAboutCourseHint": "Начать новый разговор об этом уроке",
     "collapseClassroom": "Collapse classroom",
     "expandClassroom": "Classroom",
     "readOnlyBadge": "Read-only",
@@ -2483,6 +2456,7 @@
     "coursePausedDesc": "Одну страницу не удалось создать. Повторите попытку в классе; курс откроется здесь, когда создание завершится.",
     "viewGenerationProgress": "Посмотреть ход создания",
     "openToRetry": "Открыть и повторить",
+    "courseGeneratingRowHint": "Доступно после завершения создания",
     "noCourseTitle": "No course open",
     "noCourseHint": "Откройте по ссылке на курс в переписке или выберите курс в списке слева — переписка останется на месте",
     "resizeChatAria": "Drag to resize the conversation pane",
@@ -2491,6 +2465,7 @@
     "autoSaved": "Сохранено",
     "collapsedTitle": "Both panes are collapsed",
     "collapsedHint": "Use the tabs on the left to bring the conversation or the classroom back",
+    "moreUtilities": "More",
     "rowMore": "Другие действия для {{name}}",
     "folderDeleteHint": "Курсы из папки вернутся на верхний уровень. Ничего не удаляется.",
     "dropToUnfile": "Перетащите сюда, чтобы убрать из папки",
@@ -2504,181 +2479,11 @@
     "confirmDelete": "Подтвердить удаление",
     "deleting": "Удаление…",
     "deleteFailed": "Не удалось удалить. Повторите попытку.",
+    "tabsAria": "Chats and courses",
     "courseTabsAria": "Открытые курсы",
     "courseTabClose": "Закрыть вкладку: {{name}}",
     "courseTabRunning": "Генерируется",
-    "foldersUnavailable": "Папки недоступны в этой сборке",
-    "composer": {
-      "attach": "Прикрепить материал",
-      "mentionCourse": "引用课堂",
-      "mentionCourseOrMaterial": "Упомянуть кабинет или материал из базы знаний",
-      "loadSkill": "加载 skill",
-      "skillMenuTitle": "选择课程设计技能",
-      "skillsLoading": "正在加载 skill…",
-      "noSkillsAvailable": "暂无可用 skill",
-      "userSkillsGroup": "我的 Skill",
-      "builtinSkillsGroup": "内置 Skill",
-      "skillsLoadFailed": "Skill 加载失败，点击重试",
-      "retrySkills": "重试",
-      "noSkillMatch": "没有匹配“{{query}}”的 Skill",
-      "launchPlaceholder": "Опишите учебный опыт, который хотите создать",
-      "launchSend": "Начать сборку"
-    },
-    "nav": {
-      "search": "Поиск",
-      "myCourses": "Мои курсы"
-    },
-    "search": {
-      "placeholder": "Поиск по чатам, курсам и материалам",
-      "recentChats": "Недавние чаты",
-      "recentCourses": "Недавние курсы",
-      "courses": "Курсы",
-      "materials": "Материалы",
-      "actions": "Быстрые действия",
-      "searching": "Поиск…",
-      "empty": "Ничего не найдено по запросу «{{query}}»",
-      "materialsFailed": "Не удалось выполнить поиск в базе знаний",
-      "themeAction": "Тема: {{name}}",
-      "languageAction": "Язык: {{name}}"
-    },
-    "account": {
-      "signIn": "Войти",
-      "menu": "Аккаунт и настройки",
-      "profileSaved": "Сохранено",
-      "language": "Язык",
-      "about": "Об OpenMAIC",
-      "aboutBody": "Платформа с открытым исходным кодом, которая превращает любую тему в интерактивный класс с ИИ-преподавателями и одноклассниками. Распространяется по лицензии MIT.",
-      "viewOnGithub": "Открыть на GitHub",
-      "docs": "Документация",
-      "signOut": "Выйти",
-      "onboarding": "С чего начать"
-    },
-    "coursesPage": {
-      "searchPlaceholder": "Поиск по моим курсам",
-      "results": "Результаты поиска",
-      "allCourses": "Все курсы",
-      "emptyHint": "Опишите тему на главной странице, и здесь появится ваш первый урок.",
-      "makeCourse": "Создать урок",
-      "pin": "Закрепить вверху",
-      "unpin": "Открепить",
-      "pinned": "Закреплено"
-    },
-    "fullscreen": {
-      "expand": "Во весь экран",
-      "collapse": "Выйти из полноэкранного режима (Esc)"
-    },
-    "onboarding": {
-      "paneTitle": "Учиться или редактировать",
-      "paneLearn": "«Учиться»: ИИ-преподаватель ведёт урок, задавайте вопросы в любой момент.",
-      "paneEdit": "«Редактировать»: меняйте страницы напрямую.",
-      "paneChat": "Или попросите в чате, например: «сделай страницу 2 проще».",
-      "gotIt": "Понятно"
-    },
-    "tour": {
-      "skip": "Пропустить",
-      "prev": "Назад",
-      "next": "Далее",
-      "done": "Написать своё",
-      "count": "{{index}} / {{total}}",
-      "openGuide": "Пройти пробный урок",
-      "welcome": {
-        "title": "Добро пожаловать в OpenMAIC",
-        "body": "Скажите, что хотите изучить, и OpenMAIC создаст интерактивный урок с ИИ-преподавателем и однокурсниками."
-      },
-      "start": {
-        "title": "Начните здесь",
-        "body": "«Новый чат» начинает новый урок. Поиск (⌘K) находит уроки, чаты и материалы."
-      },
-      "courses": {
-        "title": "Пробный урок",
-        "body": "Этот 5-минутный урок тоже сделан в OpenMAIC. Откройте его и посмотрите, где идёт урок."
-      },
-      "library": {
-        "title": "База знаний",
-        "body": "Загрузите конспекты и PDF один раз и используйте их в любом уроке."
-      },
-      "conversations": {
-        "title": "Чаты",
-        "body": "Каждый урок создаётся в чате. Чтобы изменить его, вернитесь в этот чат и попросите."
-      },
-      "mode": {
-        "title": "Учиться или редактировать",
-        "body": "«Учиться» — урок с ИИ-преподавателем, «Редактировать» — правка по страницам."
-      },
-      "dock": {
-        "title": "Класс",
-        "body": "Воспроизведение, страницы, вопросы ИИ-преподавателю в любой момент; однокурсники тоже обсуждают."
-      },
-      "chat": {
-        "title": "Меняйте в чате",
-        "body": "Просто напишите в чате рядом «сделай страницу 2 проще», и ИИ изменит урок."
-      },
-      "account": {
-        "title": "Аккаунт и настройки",
-        "body": "Профиль, настройки, язык и тема — здесь, и это руководство тоже."
-      },
-      "try": {
-        "title": "Попробуйте сейчас",
-        "body": "Введите тему или выберите пример, чтобы начать сразу.",
-        "attach": "Материал: загрузите конспект как основу урока",
-        "mention": "Ссылка: @ урок или материал из базы знаний",
-        "skill": "Навыки: выберите стиль, например «Глубокое взаимодействие»"
-      },
-      "examples": {
-        "sky": {
-          "label": "Почему небо голубое?",
-          "prompt": "Почему небо голубое? Объясни на том, что я вижу каждый день"
-        },
-        "interest": {
-          "label": "Как работают сложные проценты",
-          "prompt": "Объясни на бытовых примерах, как работают сложные проценты"
-        },
-        "teach": {
-          "label": "Преподать: Пифагор, 8 класс",
-          "prompt": "Урок по теореме Пифагора для 8 класса с коротким тестом в конце"
-        }
-      },
-      "coursesNav": {
-        "title": "Мои курсы",
-        "body": "Здесь ваши готовые уроки. Нажмите, чтобы посмотреть."
-      },
-      "openLook": "Открыть",
-      "edit": {
-        "canvas": {
-          "title": "Страница",
-          "body": "Нажмите на текст, изображение или фигуру, чтобы изменить; перетаскивайте, чтобы двигать и менять размер."
-        },
-        "pages": {
-          "title": "Страницы",
-          "body": "Здесь открывается список страниц: добавляйте, перетаскивайте, удаляйте."
-        },
-        "bar": {
-          "title": "Панель управления",
-          "body": "Добавить действие, озвучить текст, листать и добавлять страницы, выбрать преподавателя и однокурсников; справа — обвести элементы для ИИ."
-        },
-        "timeline": {
-          "title": "Дорожка действий",
-          "body": "Каждая карточка — действие: объяснение, подсветка, обсуждение. Перетаскивайте для порядка, нажмите для правки."
-        },
-        "dock": {
-          "title": "Нижняя панель",
-          "body": "Потяните за верхний край, чтобы изменить высоту, или сверните её, чтобы освободить место."
-        },
-        "learn": {
-          "title": "Предпросмотр",
-          "body": "Вернитесь в «Учиться», чтобы увидеть урок глазами ученика."
-        },
-        "chat": {
-          "title": "Попросите ИИ",
-          "body": "Не хотите вручную? Напишите в чате, например: «добавь упражнение на страницу 2»."
-        }
-      },
-      "editDone": "Начать правку"
-    },
-    "mobile": {
-      "openMenu": "Открыть навигацию",
-      "closeMenu": "Закрыть навигацию"
-    }
+    "foldersUnavailable": "Папки недоступны в этой сборке"
   },
   "profile": {
     "title": "Профиль",
@@ -2710,6 +2515,25 @@
     "placeholder": "Код доступа",
     "error": "Неверный код доступа. Попробуйте ещё раз."
   },
+  "proMode": {
+    "attach": "Прикрепить материал",
+    "mentionCourse": "引用课堂",
+    "loadSkill": "加载 skill",
+    "skillMenuTitle": "选择课程设计技能",
+    "skillsLoading": "正在加载 skill…",
+    "noSkillsAvailable": "暂无可用 skill",
+    "userSkillsGroup": "我的 Skill",
+    "builtinSkillsGroup": "内置 Skill",
+    "skillsLoadFailed": "Skill 加载失败，点击重试",
+    "retrySkills": "重试",
+    "noSkillMatch": "没有匹配“{{query}}”的 Skill",
+    "badgeAria": "Pro-режим",
+    "badgeEnter": "Pro-режим",
+    "badgeExit": "Вернуться в обычный режим",
+    "launchPlaceholder": "Опишите учебный опыт, который хотите создать",
+    "launchSend": "Начать сборку",
+    "mentionCourseOrMaterial": "Упомянуть кабинет или материал из базы знаний"
+  },
   "workbench": {
     "tool": {
       "label": {
@@ -2721,23 +2545,12 @@
       }
     }
   },
-  "classroomEnd": {
-    "close": "Вернуться на последнюю страницу",
-    "learned": "Страниц пройдено: {{count}}",
-    "result": "Верно: {{correct}} из {{total}}",
-    "actions": {
-      "reviewWrong": "Разобрать ошибки",
-      "doQuiz": "К тесту",
-      "restart": "Начать заново"
-    }
-  },
   "sandbox": {
     "errors": {
       "learningManaged": "Это рабочее пространство принадлежит учебному проекту. Используйте элементы управления учебного пространства.",
       "sourcePath": "Этот файл не входит в исходные файлы проекта.",
       "sourceCount": "Учебные проекты поддерживают не более 256 исходных файлов.",
       "sourceSize": "Общий объём исходного содержимого проекта не должен превышать 1 MiB.",
-      "commandSize": "Сформированная команда сборки или тестирования слишком велика для запуска в песочнице.",
       "teachingContextSize": "Учебный контекст слишком длинный. Сократите PLAN.md или вопрос для проверки и повторите попытку.",
       "commandActive": "Остановите выполняющиеся команды и получите их результаты перед чтением или сохранением снимка рабочего пространства.",
       "terminalActive": "Закройте терминалы перед чтением или сохранением снимка рабочего пространства.",
@@ -2933,9 +2746,6 @@
     "message": "Your message",
     "send": "Send",
     "submitQuiz": "Submit answers",
-    "submitting": "Отправка…",
-    "submitted": "Отправлено",
-    "resubmit": "Отправить изменения",
     "quizPassed": "Тест пройден: {{score}} из {{total}} ответов верны. Можно продолжить.",
     "quizRetry": "Верных ответов: {{score}} из {{total}}. Проверьте ответы и попробуйте снова.",
     "quizCorrect": "Последний ответ: верно",
@@ -3047,40 +2857,7 @@
       "file-edit": "File edit",
       "workspace-run": "Workspace run"
     },
-    "overview": {
-      "startLearning": "Начать обучение",
-      "title": "Обзор проекта",
-      "expand": "Развернуть",
-      "collapse": "Свернуть",
-      "projectGoal": "Цель проекта",
-      "finishedWork": "Готовое приложение",
-      "roadmap": "План проекта",
-      "goalAndResult": "Цель и результат",
-      "goal": "Цель",
-      "result": "Результат",
-      "eachStage": "Порядок каждой стадии",
-      "yourRole": "Вы принимаете решения и проверяете; ИИ помогает написать план и код.",
-      "preview": "Испытайте приложение в области предпросмотра и проверьте результат.",
-      "advance": "Фиолетовая кнопка над полем ввода появляется только тогда, когда можно перейти дальше. Когда она появится, нажмите её, чтобы продолжить.",
-      "startBlocked": {
-        "guide": "Завершите или закройте руководство по рабочей области, чтобы начать обучение.",
-        "connecting": "Подключаем обновления в реальном времени перед началом обучения…",
-        "retrying": "Восстанавливаем подключение к обновлениям. Дождитесь восстановления связи перед началом обучения.",
-        "unavailable": "Обновления недоступны. Обновите страницу для подключения перед началом обучения.",
-        "pending": "Выполняется действие. Дождитесь его завершения перед началом обучения.",
-        "busy": "Помощник ещё отвечает. Дождитесь конца ответа перед началом обучения.",
-        "environment": "Дождитесь готовности учебной среды перед началом обучения. Если подготовка не удалась, повторите попытку выше.",
-        "unsaved": "В файлах проекта есть несохранённые изменения. Сохраните или отмените их перед началом обучения.",
-        "preparing": "Рабочая область готовится. Подождите перед началом обучения."
-      },
-      "singleFlow": "Ход работы над проектом",
-      "concepts": "Инженерные понятия",
-      "deliverables": "Реализованные функции"
-    },
     "journey": {
-      "currentMilestone": "Текущий этап",
-      "milestoneGoal": "Цель:",
-      "milestoneResult": "Результат:",
       "completionHandoff": "This step is complete. See the task bar at the bottom of the Learning Assistant pane for the next action.",
       "startConversation": "Your assistant will open this step when the learning environment is ready.",
       "latest": "Go to the latest message",
@@ -3122,7 +2899,6 @@
       "notReflected": "Reflection not yet recorded",
       "taskDetails": "Current task details",
       "closeDetails": "Close task details",
-      "reviewDetails": "Посмотреть детали",
       "milestoneSteps": "Milestone learning steps",
       "enterStep": "Continue to {{step}}",
       "enterMilestone": "Следующий этап",
@@ -3212,14 +2988,13 @@
       "readOnly": "Read-only",
       "saved": "Сохранено",
       "saveFailed": "Ошибка · Повторить",
-      "draftRetained": "Изменения сохранены в этом браузере",
-      "retryRead": "Повторить чтение"
+      "draftRetained": "Изменения сохранены в этом браузере"
     },
     "inputBlocked": {
       "pending": "Processing your action. Your draft is kept.",
       "busy": "The assistant is replying. Stop the reply before sending another message.",
       "environment": "The project environment is not ready. If setup failed, retry above; your draft is kept.",
-      "unsaved": "В файлах проекта есть несохранённые изменения. Сохраните или отмените их перед отправкой; ваше сообщение останется здесь.",
+      "unsaved": "Saving project files. You can send once saving finishes; your message stays here.",
       "opening": "The assistant has not opened this step yet. Retry the opening; your draft is kept."
     },
     "recoverEnvironment": "Restore learning environment",
@@ -3311,10 +3086,10 @@
       "discussion": "This step is for discussing decisions. File editing opens during planning and coding.",
       "quiz": "This is the understanding quiz. Project files are read-only.",
       "recap": "This is the reflection step. Project files are read-only.",
-      "assessment": "This is the test step. Files are read-only until a failure opens repair.",
+      "assessment": "This is the test step. Files are read-only; a recorded failure opens code repair.",
       "stage": "Project files are read-only in this step.",
       "planOnly": "Planning allows edits to PLAN.md only. Source files are read-only.",
-      "planLocked": "PLAN.md is approved and read-only during coding.",
+      "planLocked": "PLAN.md is approved and read-only during coding or test repair.",
       "planEditable": "You can edit PLAN.md. Changes are saved automatically.",
       "codeEditable": "You can edit source files. Changes are saved automatically.",
       "stale": "The environment or file changed. Your draft is kept; copy it or reload before editing.",
@@ -3417,8 +3192,6 @@
       "waiting": "Руководство будет доступно, когда учебная среда будет готова.",
       "loading": "Загрузка рабочей области",
       "loadingDetail": "Подключаем учебную среду и подготавливаем файлы проекта. Пожалуйста, подождите.",
-      "loadingSlowDetail": "Подготовка занимает больше времени. Можно вернуться к описанию проекта — уже начатая подготовка среды продолжится в фоновом режиме.",
-      "loadingReturn": "Вернуться к описанию проекта",
       "steps": {
         "progress": {
           "title": "Просмотр прогресса и текущей задачи",

@@ -34,16 +34,10 @@
     "placeholder": "Viết câu trả lời của bạn",
     "confirm": "Xác nhận",
     "submit": "Gửi",
-    "dismiss": "Thu gọn",
+    "dismiss": "Bỏ qua",
     "inFormBelow": "Hãy trả lời trong biểu mẫu bên dưới",
     "inPreview": "Trả lời trong bản xem trước",
-    "multiAnswerSeparator": ", ",
-    "recommended": "Đề xuất",
-    "autoConfirm": "Tự động xác nhận",
-    "autoConfirmed": "Đã tự chọn phương án đề xuất — bạn có thể đổi bất cứ lúc nào",
-    "showDetails": "Xem thêm",
-    "hideDetails": "Thu gọn",
-    "orAnswerInChat": "Bạn cũng có thể trả lời ngay trong cuộc trò chuyện"
+    "multiAnswerSeparator": ", "
   },
   "material": {
     "maxSelected": "Mỗi lần chỉ chọn được tối đa {{count}} tài liệu",
@@ -54,9 +48,7 @@
     "fileTooLargeWithLimit": "Tệp quá lớn. Vui lòng chọn tệp không vượt quá {{limit}} MB.",
     "unsupportedType": "Loại tệp không được hỗ trợ. Vui lòng chọn tệp được hỗ trợ.",
     "quotaExceeded": "Đã đạt giới hạn tải tài liệu lên.",
-    "storageFull": "Dung lượng lưu trữ đã đầy. Không thể tải tài liệu này lên.",
-    "uploadFailedShort": "Tải lên thất bại",
-    "retryFailed": "Không thể phân tích lại. Vui lòng thử lại."
+    "storageFull": "Dung lượng lưu trữ đã đầy. Không thể tải tài liệu này lên."
   },
   "skill": {
     "listFailed": "Không tải được danh sách skill",
@@ -137,8 +129,6 @@
     "steerQueued": "Agent sẽ trả lời sau khi xong bước hiện tại",
     "runFailed": "Lượt dựng này đã thất bại",
     "retryHint": "Gửi thêm một tin nhắn để thử lại",
-    "contextLengthLimit": "Cuộc trò chuyện này đã đạt độ dài tối đa. Hãy bắt đầu cuộc trò chuyện mới để tiếp tục.",
-    "contextBudgetInvalid": "Ngân sách ngữ cảnh của mô hình hiện tại bị cấu hình sai. Lượt này đã dừng.",
     "stopped": "Lượt dựng này đã dừng",
     "workerInterrupted": "Bị ngắt do worker khởi động lại. Lần gọi này không có kết quả; agent sẽ gọi lại nếu cần.",
     "userStopped": "Bị ngắt do dừng. Lần gọi này không có kết quả."
@@ -149,7 +139,9 @@
     "listSeparator": ", ",
     "group": {
       "tools": "{{count}} lần gọi tool",
-      "failed": "{{count}} thất bại",
+      "skills": "{{count}} skill",
+      "running": "Đang chạy",
+      "error": "Có lỗi",
       "done": "Hoàn tất"
     },
     "section": {

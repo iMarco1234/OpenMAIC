@@ -1,4 +1,3 @@
-import { getChapterSource, withChapterSource } from '@/lib/document/chapter-source';
 import {
   createMaterialId,
   type ClaimedMaterialExtraction,
@@ -248,26 +247,17 @@ export function plannedExtractor(plan: SourceExtractionPlan): { id: string; vers
   return { id: provider.id, version: provider.version };
 }
 
-/**
- * Run a plan's extractor (falling back across document providers) and return
- * its output. `signal` reaches every provider's config, so one that honors it
- * stops its requests and jobs when the caller stops waiting.
- */
+/** Run a plan's extractor (falling back across document providers) and return its output. */
 export async function runSourceExtraction(
   plan: SourceExtractionPlan,
   title: string | null,
-  signal?: AbortSignal,
 ): Promise<SourceExtractionOutcome> {
   if (plan.kind === 'media') {
     let artifact: MediaArtifact;
     try {
       artifact = await plan.provider.extract({
         ...plan.input,
-        config: {
-          ...plan.input.config,
-          providerId: plan.provider.id,
-          ...(signal ? { signal } : {}),
-        },
+        config: { ...plan.input.config, providerId: plan.provider.id },
       });
     } catch (error) {
       throw wrapProviderError(error);
@@ -314,7 +304,7 @@ export async function runSourceExtraction(
   for (const provider of plan.candidates) {
     let artifact: DocumentArtifact;
     try {
-      artifact = await extractWithDocumentProvider(provider, plan, signal);
+      artifact = await extractWithDocumentProvider(provider, plan);
     } catch (error) {
       errors.push(documentFailureLine(provider, error));
       failures.push(error);
@@ -327,22 +317,14 @@ export async function runSourceExtraction(
   throw documentExtractionFailure(errors, failures, plan.noServiceConfigured);
 }
 
-/**
- * Run one document provider on a planned input; a failure is the provider's
- * own error. `signal` reaches the provider's config, so a provider that honors
- * it stops its requests, polls and jobs when the caller stops waiting.
- */
+/** Run one document provider on a planned input; a failure is the provider's own error. */
 export function extractWithDocumentProvider(
   provider: DocumentExtractorProvider,
   plan: Extract<SourceExtractionPlan, { kind: 'document' }>,
-  signal?: AbortSignal,
 ): Promise<DocumentArtifact> {
   return provider.extract({
     ...plan.input,
-    config: {
-      ...extractorConfigFor(provider.id, plan.services),
-      ...(signal ? { signal } : {}),
-    },
+    config: extractorConfigFor(provider.id, plan.services),
   });
 }
 
@@ -354,9 +336,9 @@ export function documentFailureLine(provider: DocumentExtractorProvider, error: 
 /**
  * The failure once every document provider failed: retryable if any failure
  * was transient, and `service_unavailable` when no candidate was a service
- * the deployment configured. Failed page ranges keep their public reason;
- * other provider failures keep no reason code. A service that refused the
- * source itself ends the walk: that refusal, never retried, with its reason.
+ * the deployment configured (any other failure keeps no reason code). A
+ * service that refused the source itself ends the walk: that refusal, never
+ * retried, with its reason.
  */
 export function documentExtractionFailure(
   errors: string[],
@@ -371,18 +353,10 @@ export function documentExtractionFailure(
       reasonValues: refusal.reasonValues,
     });
   }
-  const failedPages = failures.find(
-    (failure): failure is MaterialExtractionError =>
-      failure instanceof MaterialExtractionError && failure.reasonCode === 'pages_failed',
-  );
   return new MaterialExtractionError(
     `document extraction failed (${errors.join('; ')})`,
     failures.some(isTransientExtractionError),
-    failedPages
-      ? { reasonCode: failedPages.reasonCode, reasonValues: failedPages.reasonValues }
-      : noServiceConfigured
-        ? { reasonCode: 'service_unavailable' }
-        : undefined,
+    noServiceConfigured ? { reasonCode: 'service_unavailable' } : undefined,
   );
 }
 
@@ -392,24 +366,21 @@ export function documentOutcome(
   provider: DocumentExtractorProvider,
 ): SourceExtractionOutcome {
   const text = artifactText(artifact);
-  return withChapterSource(
-    {
-      text,
-      // Document images are not kept: the text is stored as the provider
-      // returned it, the same output the session chain has always published.
-      images: [],
-      extractor: { id: provider.id, version: provider.version },
-      stats: {
-        chars: text.length,
-        pages: artifact.metadata.pageCount ?? 0,
-        imageCount: artifact.assets.filter((asset) => asset.type === 'image').length,
-        ...(artifact.diagnostics?.length
-          ? { diagnostics: artifact.diagnostics.map((diagnostic) => diagnostic.message) }
-          : {}),
-      },
+  return {
+    text,
+    // Document images are not kept: the text is stored as the provider
+    // returned it, the same output the session chain has always published.
+    images: [],
+    extractor: { id: provider.id, version: provider.version },
+    stats: {
+      chars: text.length,
+      pages: artifact.metadata.pageCount ?? 0,
+      imageCount: artifact.assets.filter((asset) => asset.type === 'image').length,
+      ...(artifact.diagnostics?.length
+        ? { diagnostics: artifact.diagnostics.map((diagnostic) => diagnostic.message) }
+        : {}),
     },
-    provider.id === 'mineru' ? getChapterSource(artifact) : undefined,
-  );
+  };
 }
 
 async function defaultSessionOwner(sessionId: string): Promise<string | undefined> {

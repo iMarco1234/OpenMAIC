@@ -79,7 +79,6 @@ export function LatexToolbarOverlay({
       ref={overlayRef}
       className="maic-editing-ui-root maic-editing-ui-latex-toolbar"
       data-toolbar-overlay=""
-      data-toolbar-anchor={elementIdPrefix + element.id}
       style={{
         left: position ? `${position.left}px` : '0px',
         position: 'fixed',

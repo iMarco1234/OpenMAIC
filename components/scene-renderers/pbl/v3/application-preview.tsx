@@ -4,7 +4,6 @@ import { AppWindow, ChevronRight, ExternalLink, Info, LoaderCircle, RefreshCw } 
 import { useI18n } from '@/lib/hooks/use-i18n';
 import type { LearningView } from '@/lib/pbl/v3/types';
 import type { ApplicationPreviewController } from './use-application-preview';
-import { DismissibleDetails } from './dismissible-details';
 
 export function ApplicationPreviewToggle({ preview }: { preview: ApplicationPreviewController }) {
   const { t } = useI18n();
@@ -65,7 +64,6 @@ function ApplicationPreviewContent({
 }) {
   const { t } = useI18n();
   const { pending, observation, expired, disabled } = preview;
-  const standalone = preview.standaloneFrontend;
   const mounted = !!preview.document;
   const frame = useRef<HTMLIFrameElement | null>(null);
   const candidate = useRef<HTMLIFrameElement | null>(null);
@@ -81,8 +79,8 @@ function ApplicationPreviewContent({
   );
   const readinessError =
     readinessFailure?.url === url && readinessFailure?.version === preview.frameVersion;
-  const documentError = preview.error || (readinessError ? t('pblV3.application.unavailable') : '');
-  const error = documentError || (standalone && !currentReady ? preview.applicationError : '');
+  const error = preview.error || (readinessError ? t('pblV3.application.unavailable') : '');
+  const standalone = preview.standaloneFrontend;
   const recoverApplication = standalone && currentReady && !expired && !!preview.applicationError;
   const applicationAction = t(
     recoverApplication ? 'pblV3.application.reopen' : 'pblV3.application.restart',
@@ -203,18 +201,14 @@ function ApplicationPreviewContent({
       window.removeEventListener('blur', reclaim, true);
     };
   }, [inputAvailable, preview.open]);
-  const retryFrontendOnce = preview.retryFrontendOnce;
   useLayoutEffect(() => {
     if (!url || currentReady) return;
     const timer = setTimeout(
-      () => {
-        if (!standalone || !retryFrontendOnce())
-          setReadinessFailure({ url, version: preview.frameVersion });
-      },
+      () => setReadinessFailure({ url, version: preview.frameVersion }),
       standalone ? 15_000 : 60_000,
     );
     return () => clearTimeout(timer);
-  }, [url, preview.frameVersion, currentReady, standalone, retryFrontendOnce]);
+  }, [url, preview.frameVersion, currentReady, standalone]);
   const renew = preview.renew;
   const documentReady = preview.documentReady;
   useLayoutEffect(() => {
@@ -236,10 +230,8 @@ function ApplicationPreviewContent({
           setReadinessFailure(null);
           setDisplayed({ url, version: preview.frameVersion });
           documentReady(preview.frameVersion);
-        } else if (event.data?.type === 'openmaic-preview-error') {
-          if (!standalone || !retryFrontendOnce())
-            setReadinessFailure({ url, version: preview.frameVersion });
-        }
+        } else if (event.data?.type === 'openmaic-preview-error')
+          setReadinessFailure({ url, version: preview.frameVersion });
       }
       if (
         event.source === frame.current?.contentWindow &&
@@ -250,16 +242,7 @@ function ApplicationPreviewContent({
     };
     window.addEventListener('message', receive);
     return () => window.removeEventListener('message', receive);
-  }, [
-    url,
-    previous?.url,
-    preview.frameVersion,
-    renew,
-    documentReady,
-    sendInput,
-    standalone,
-    retryFrontendOnce,
-  ]);
+  }, [url, previous?.url, preview.frameVersion, renew, documentReady, sendInput]);
   const status = !available && !updating && (!standalone || !currentReady || expired) && (
     <div
       role="status"
@@ -296,12 +279,12 @@ function ApplicationPreviewContent({
           {observation.output}
         </pre>
       )}
-      {!pending && !preview.frontendPending && !disabled && (
+      {((standalone && !!error) || (!pending && !preview.frontendPending && !disabled)) && (
         <button
           type="button"
           className="rounded border px-3 py-2 text-foreground"
           onClick={() => {
-            if (standalone && documentError) preview.reloadFrontend();
+            if (standalone && error) preview.reloadFrontend();
             else void preview.load('open', 'explicit');
           }}
         >
@@ -324,7 +307,7 @@ function ApplicationPreviewContent({
       <header className="relative flex shrink-0 items-center gap-2 border-b px-3 py-2 text-xs">
         <AppWindow size={15} className="shrink-0" />
         <h3 className="min-w-0 flex-1 truncate font-semibold">{application.title}</h3>
-        <DismissibleDetails>
+        <details>
           <summary
             aria-label={t('pblV3.application.help')}
             title={t('pblV3.application.help')}
@@ -339,17 +322,8 @@ function ApplicationPreviewContent({
             {standalone && observation?.output && (
               <pre className="max-h-40 overflow-auto whitespace-pre-wrap">{observation.output}</pre>
             )}
-            {standalone && available && !preview.launchPaused && (
-              <button
-                type="button"
-                className="rounded border px-2 py-1 text-foreground hover:bg-muted"
-                onClick={preview.reloadFrontend}
-              >
-                {t('pblV3.application.reopen')}
-              </button>
-            )}
           </div>
-        </DismissibleDetails>
+        </details>
         <button
           type="button"
           disabled={pending || disabled || preview.launchPaused}
@@ -417,9 +391,7 @@ function ApplicationPreviewContent({
           <LoaderCircle size={14} className="shrink-0 animate-spin" />
           {t(
             standalone && !currentReady
-              ? observation?.state === 'running'
-                ? 'common.loading'
-                : 'pblV3.application.starting'
+              ? 'common.loading'
               : preview.dirty
                 ? 'pblV3.application.saveFirst'
                 : paused && disabled

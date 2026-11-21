@@ -27,11 +27,9 @@ export interface ComposerMenuState {
 export function resolveComposerMenu(input: {
   readonly draft: string;
   /**
-   * The input's live `selectionStart`. Both triggers read the token AROUND it.
+   * The textarea's live `selectionStart`. Both triggers read the token AROUND it.
    */
   readonly caret: number;
-  /** The caret stands against a chip: finished text, which no menu is querying. */
-  readonly caretBesideChip?: boolean;
   /** The draft the `/` menu was last dismissed on. */
   readonly slashDismissedOn?: string | null;
   /** The draft the `@` menu was last dismissed on. */
@@ -47,15 +45,13 @@ export function resolveComposerMenu(input: {
   const {
     draft,
     caret,
-    caretBesideChip = false,
     slashDismissedOn = null,
     mentionDismissedOn = null,
     courseMenuRequested = false,
     courseMenuAvailable = true,
   } = input;
-  const slash = draft === slashDismissedOn || caretBesideChip ? null : slashQuery(draft, caret);
-  const mention =
-    draft === mentionDismissedOn || caretBesideChip ? null : courseMentionQuery(draft, caret);
+  const slash = draft === slashDismissedOn ? null : slashQuery(draft, caret);
+  const mention = draft === mentionDismissedOn ? null : courseMentionQuery(draft, caret);
   if (slash !== null) return { menu: 'skill', slash, mention: null };
   const dismissedOnThisDraft = draft === mentionDismissedOn;
   const course =

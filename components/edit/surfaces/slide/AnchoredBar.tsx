@@ -52,7 +52,6 @@ export function AnchoredBar({ elementId, children }: AnchoredBarProps) {
       )}
       {open && (
         <PopoverContent
-          data-toolbar-overlay=""
           side="top"
           align="center"
           sideOffset={8}

@@ -3,7 +3,6 @@ import type { TSchema } from 'typebox';
 import { createLogger } from '@/lib/logger';
 import type { MediaConnection } from '@/lib/server/model-config/media';
 import { serverMediaConnection } from '@/lib/server/model-config/media';
-import { getRenderServiceCapability } from '@/lib/server/render-service';
 import { resolveWebSearchCapability, type WebSearchCapability } from './web-search';
 import { resolveWebFetchCapability, untrustedContentPolicyPromptBlock } from './fetch-url';
 import { hasConfiguredImageGeneration } from './generate-image';
@@ -49,8 +48,7 @@ export type CapabilityRequirement =
   | 'video'
   | 'web_search'
   | 'web_fetch'
-  | 'voice_registration'
-  | 'render_service';
+  | 'voice_registration';
 
 export interface CapabilityDependentTool<
   TParameters extends TSchema = TSchema,
@@ -95,16 +93,13 @@ export async function resolveRunnerCapabilities({
   ownerId?: string;
   workspaceId: string | null;
 }): Promise<ResolvedCapabilityMap> {
-  const [search, fetchConnection, ttsConnection, imageConnection, videoConnection, renderService] =
+  const [search, fetchConnection, ttsConnection, imageConnection, videoConnection] =
     await Promise.all([
       resolveWebSearchCapability(workspaceId),
       resolveWebFetchCapability(workspaceId),
       resolveMediaSlotConnection('tts', ownerId),
       resolveMediaSlotConnection('image', ownerId),
       resolveMediaSlotConnection('video', ownerId),
-      // A configured RENDER_SERVICE_URL is not enough: the service must pass the
-      // same /health probe the MP4 export capability uses (#2108).
-      getRenderServiceCapability(),
     ]);
 
   const available: Record<CapabilityRequirement, boolean> = {
@@ -114,7 +109,6 @@ export async function resolveRunnerCapabilities({
     image: hasConfiguredImageGeneration({ imageConnection }),
     video: hasConfiguredVideoGeneration({ videoConnection }),
     voice_registration: hasConfiguredVoiceRegistrationCapability(ttsConnection),
-    render_service: renderService.enabled,
   };
 
   return {
@@ -141,7 +135,6 @@ export function createCapabilityMap(
     image: false,
     video: false,
     voice_registration: false,
-    render_service: false,
     ...available,
   };
   return {

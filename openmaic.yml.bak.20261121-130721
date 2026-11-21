@@ -1,0 +1,158 @@
+# OpenMAIC model configuration for local deployment in WorkBuddy
+#
+# Uses a local Ollama instance (qwen38-planner-128k) as the OpenAI-compatible
+# provider. Ollama exposes its OpenAI-compatible endpoint at
+# http://localhost:11434/v1 which speaks the same protocol OpenMAIC expects
+# for LLM slots.
+#
+# This file is read once at server startup. Restart after any change.
+
+providers:
+  # --- Primary LLM provider: local Ollama running qwen38-planner-128k -------
+  local:
+    preset: openai-compatible
+    baseUrl: http://localhost:11434/v1
+    # No API key needed for Ollama (accepts an empty string or a placeholder).
+    apiKey: ollama-local
+    models:
+      - qwen38-planner-128k:latest
+      - qwen3.8:27b-nvfp4
+      - qwen38-executor-8k:latest
+      - qwen38-executor-128k:latest
+      # bge-m3: embedding(向量)模型, Ollama 同时暴露 /v1/embeddings。
+      # OpenMAIC 本身无 embedding 插槽, 这里仅作"可选名"登记以便出现在
+      # provider 模型列表里; 真正的向量/RAG 调用请在 Cherry Studio 用 Ollama provider。
+      - bge-m3:567m-fp16
+
+  # --- Local TTS: Microsoft's free neural Chinese voices via edge-tts --------
+  # A tiny OpenAI-compatible proxy (tts-proxy/server.py) wraps edge-tts so this
+  # slot exposes a real voice catalogue with no API key. Run it first:
+  #   .venv-tts/bin/python3 tts-proxy/server.py   (listens on 127.0.0.1:8799)
+  # The first voice listed becomes the default; a "custom-tts" slot with a
+  # `voices` list replaces the built-in picker with these entries.
+  custom-tts:
+    preset: openai-tts
+    baseUrl: http://127.0.0.1:8799
+    apiKey: local-edge-tts   # placeholder; the proxy ignores auth
+    models:
+      - edge-tts
+    options:
+      defaultVoice: zh-CN-XiaoxiaoNeural
+    voices:
+      - id: zh-CN-XiaoxiaoNeural
+        name: 晓晓 · 温柔女声（语文/朗读）
+        language: zh-CN
+        gender: female
+      - id: zh-CN-YunxiNeural
+        name: 云希 · 阳光男声
+        language: zh-CN
+        gender: male
+      - id: zh-CN-YunyangNeural
+        name: 云扬 · 新闻男声（沉稳专业）
+        language: zh-CN
+        gender: male
+      - id: zh-CN-YunjianNeural
+        name: 云健 · 激情男声（体育/激励）
+        language: zh-CN
+        gender: male
+      - id: zh-CN-XiaoyiNeural
+        name: 晓伊 · 活泼女声
+        language: zh-CN
+        gender: female
+      - id: zh-CN-YunxiaNeural
+        name: 云夏 · 可爱男声（卡通/儿童）
+        language: zh-CN
+        gender: male
+
+  # --- 本地 Qwen3-TTS 1.7B (CustomVoice, 9 个精品音色) via OpenAI 兼容 :8780 ---
+  # 由 /Users/mimimumu/WorkBuddy/2026-11-19-17-36-14/qwen-tts 的 server.py 提供,
+  # 走 OpenAI 标准 /v1/audio/speech。任意 OpenAI 兼容 TTS 客户端填
+  # Base URL=http://127.0.0.1:8780/v1 即可调用。服务需先拉起(见 qwen-tts/ 目录)。
+  qwen3-tts:
+    preset: openai-tts
+    baseUrl: http://127.0.0.1:8780
+    apiKey: local-qwen3-tts   # 占位; 服务端不校验
+    models:
+      - qwen3-tts-1.7b-customvoice
+    options:
+      defaultVoice: vivian
+    voices:
+      - id: vivian
+        name: Vivian · 女声（默认）
+        language: zh-CN
+        gender: female
+      - id: serena
+        name: Serena · 女声
+        language: zh-CN
+        gender: female
+      - id: ono_anna
+        name: Ono_Anna · 日系女声
+        language: zh-CN
+        gender: female
+      - id: sohee
+        name: Sohee · 女声
+        language: zh-CN
+        gender: female
+      - id: aiden
+        name: Aiden · 男声
+        language: zh-CN
+        gender: male
+      - id: uncle_fu
+        name: Uncle_Fu · 成熟男声
+        language: zh-CN
+        gender: male
+      - id: dylan
+        name: Dylan · 男声
+        language: zh-CN
+        gender: male
+      - id: eric
+        name: Eric · 男声
+        language: zh-CN
+        gender: male
+      - id: ryan
+        name: Ryan · 男声
+        language: zh-CN
+        gender: male
+
+  # --- 本地 Qwen2.5-Omni-7B(多模态: 图文/音频理解) via OpenAI 兼容 :8781 -------
+  # 由 /Users/mimimumu/WorkBuddy/qwen25-omni/server.py 提供(常驻 127.0.0.1:8781),
+  # 走 OpenAI 标准 /v1/chat/completions(非流式, 不校验 key)。
+  # 注意: OpenMAIC 没有"音频理解"专用槽位, 此模型只能作为【chat 可选项】出现,
+  # 不能用于 agent 槽(不做 tool-calling); 默认 chat 仍用 qwen3.8/planner 更稳。
+  omni:
+    preset: openai-compatible
+    baseUrl: http://127.0.0.1:8781/v1
+    apiKey: local-qwen25-omni   # 占位; 服务端不校验
+    models:
+      - Qwen2.5-Omni-7B
+
+slots:
+  # All language-model slots follow this default.
+  llm: local:qwen38-planner-128k:latest
+
+  # Course outline generation. Planner is a good fit here.
+  course.outline: local:qwen38-planner-128k:latest
+
+  # Course content generation. Planner also handles long-form content.
+  course.content: local:qwen38-planner-128k:latest
+
+  # The Pro workbench agent. Needs tool calling — qwen38-planner has `tools`
+  # capability, so it qualifies. Uses the OpenAI Chat Completions API.
+  agent:
+    model: local:qwen38-planner-128k:latest
+    api: openai-completions
+
+  # Turn off capabilities we don't need locally (avoid provider-required slots).
+  video: null
+  image: null
+  # tts 改走本地 Qwen3-TTS 1.7B(9 音色); 原 edge-tts custom-tts 槽(8799) 已停用。
+  tts: qwen3-tts
+  asr: null
+  webSearch: null
+  document: null
+
+# The agent slot is locked so the runtime model is always the planner.
+lock:
+  - agent
+
+allowUserKeys: false

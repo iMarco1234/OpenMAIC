@@ -16,11 +16,7 @@ Create an educational GAME widget for: {{title}}
 
 {{scoring}}
 
-{{#if additionalRequirements}}## Additional Design Requirements
-
-{{additionalRequirements}}
-
-{{/if}}## Language
+## Language
 
 {{languageDirective}}
 

@@ -171,8 +171,6 @@ window.addEventListener('message', function(event) {
       // Nodes reveal through step state; any other element reveals directly.
       const revealEl = showTarget(target);
       if (revealEl && !targetNodeId(target)) {
-        revealEl.removeAttribute('hidden'); // Works for HTML and SVG elements
-        revealEl.classList.remove('hidden');
         revealEl.style.display = '';
         revealEl.style.opacity = '1';
       }
@@ -201,5 +199,3 @@ Return exactly ONE complete HTML document. No markdown fences, no duplication.
 {{snippet:interactive-math}}
 
 {{snippet:interactive-observation}}
-
-{{snippet:interactive-display-state}}

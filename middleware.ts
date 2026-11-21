@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { isAgentRuntimeConfigured, isWorkbenchEnabled } from '@/lib/config/feature-flags';
+import { isAgentRuntimeConfigured, isProWorkbenchEnabled } from '@/lib/config/feature-flags';
 import { verifyAccessTokenEdge } from '@/lib/server/access-token-edge';
 import {
   anonymousOwnerForNavigation,
@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
   // check to Node. A Node-hosted middleware uses the same gate as startup.
   const canInspectServerRuntime = process.env.NEXT_RUNTIME !== 'edge';
   const workbenchEnabled =
-    isWorkbenchEnabled() && (!canInspectServerRuntime || isAgentRuntimeConfigured());
+    isProWorkbenchEnabled() && (!canInspectServerRuntime || isAgentRuntimeConfigured());
   if (!workbenchEnabled && (pathname === '/workbench' || pathname.startsWith('/workbench/'))) {
     return new NextResponse('Not found', { status: 404 });
   }

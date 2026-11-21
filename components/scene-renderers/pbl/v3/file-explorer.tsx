@@ -62,14 +62,7 @@ export function FileExplorer({
     });
   }
   return (
-    // Nested panel resizing preserves pixels through percentage calculations.
-    // Snap the contents to whole CSS pixels so fractional rounding cannot make
-    // truncated filenames alternate between a character and an ellipsis.
-    <nav
-      aria-label={t('pblV3.files')}
-      className="h-full w-full overflow-auto p-2"
-      style={{ width: 'round(nearest, 100%, 1px)' }}
-    >
+    <nav aria-label={t('pblV3.files')} className="h-full overflow-auto p-2">
       {entries('')}
     </nav>
   );

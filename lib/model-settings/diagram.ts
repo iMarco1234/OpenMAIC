@@ -49,17 +49,7 @@ export const STATIONS: readonly StationDef[] = [
   { id: 'llm', kind: 'root', x: 440, y: 24, lines: [{ slot: 'llm' }] },
   { id: 'agent', kind: 'aside', x: 0, y: 40, lines: [{ slot: 'agent' }] },
   { id: 'asr', kind: 'aside', x: 944, y: 40, lines: [{ slot: 'asr', toggle: true }] },
-  {
-    id: 'document',
-    kind: 'station',
-    row: 1,
-    x: col1(0),
-    y: ROW_1,
-    lines: [
-      { slot: 'document', labelKey: 'parse' },
-      { slot: 'material.chapters', labelKey: 'chapters' },
-    ],
-  },
+  { id: 'document', kind: 'station', row: 1, x: col1(0), y: ROW_1, lines: [{ slot: 'document' }] },
   {
     id: 'research',
     kind: 'station',

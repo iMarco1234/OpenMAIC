@@ -1,22 +1,24 @@
 // @vitest-environment jsdom
 
 /**
- * Courses a classic generation run is still producing, on the workspace's My
- * courses page and in the `@` picker.
+ * Courses a classic generation run is still producing, in the Pro workspace's
+ * course rail and `@` picker.
  *
- * Such a course is read-only until its run completes. Its card shows the run's
- * progress, cannot be opened and carries no ⋯ (no rename, filing or delete); a
- * paused run's card opens the classroom where its Retry lives. When the run
- * leaves the owner's active runs the card is an ordinary one again. The `@`
- * picker never offers such a course, not even the one on screen.
+ * Such a course is read-only until its run completes. The rail row shows the
+ * run's progress where the page count goes, cannot be opened, dragged, renamed
+ * or deleted, and is not a drop target; a paused run's row opens the classroom
+ * where its Retry lives. When the run leaves the owner's active runs the row is
+ * an ordinary one again. The `@` picker never offers such a course, not even
+ * the one on screen.
  */
 
-import { act, createElement } from 'react';
+import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { RunSnapshot } from '@/lib/generation-run-client/types';
 import { orderCourseMentionCandidates } from '@/lib/workbench/course-mention';
+import { RAIL_TAB_STORAGE_KEY } from '@/lib/workbench/workspace-rail-tab';
 
 vi.mock('@/lib/hooks/use-i18n', () => ({
   useI18n: () => ({
@@ -24,14 +26,20 @@ vi.mock('@/lib/hooks/use-i18n', () => ({
       options ? `${key}:${JSON.stringify(options)}` : key,
   }),
 }));
-vi.mock('@/lib/hooks/use-course-thumbnails', () => ({
-  useCourseThumbnails: () => ({
-    thumbnails: {},
-    requestThumbnail: () => () => {},
-    retainThumbnails: () => {},
-  }),
+vi.mock('@/lib/brand/brand-context', () => ({
+  useBrand: () => ({ markSrc: '/mark.svg', logoSrc: '/logo.svg' }),
 }));
-vi.mock('@/lib/hooks/use-near-viewport', () => ({ useNearViewport: () => false }));
+vi.mock('@/components/workbench/ProBadge', () => ({ ProBadge: () => null }));
+vi.mock('@/components/language-switcher', () => ({ LanguageSwitcher: () => null }));
+vi.mock('@/components/site-header/theme-toggle', () => ({ ThemeToggle: () => null }));
+vi.mock('@/lib/workbench/workspace-actions', () => ({
+  deleteWorkspaceSession: vi.fn(async () => ({ deleted: true })),
+}));
+vi.mock('@/lib/utils/stage-storage', () => ({
+  createFolder: vi.fn(),
+  renameFolder: vi.fn(async () => undefined),
+  deleteFolder: vi.fn(async () => undefined),
+}));
 
 const roots: Root[] = [];
 
@@ -39,13 +47,15 @@ const roots: Root[] = [];
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Load the page once per file, outside any test's time budget: its first import
+// Load the rail once per file, outside any test's time budget: its first import
 // transforms a large module graph, which can take longer than the 5 s test
 // timeout on a loaded CI runner.
-let WorkspaceCoursesPage: typeof import('@/components/workbench/workspace/WorkspaceCoursesPage').WorkspaceCoursesPage;
+let WorkspaceRail: typeof import('@/components/workbench/workspace/WorkspaceRail').WorkspaceRail;
 beforeAll(async () => {
-  ({ WorkspaceCoursesPage } =
-    await import('@/components/workbench/workspace/WorkspaceCoursesPage'));
+  ({ WorkspaceRail } = await import('@/components/workbench/workspace/WorkspaceRail'));
+}, 30_000);
+
+beforeAll(() => {
   if (!globalThis.PointerEvent) vi.stubGlobal('PointerEvent', MouseEvent);
   vi.stubGlobal(
     'ResizeObserver',
@@ -55,11 +65,12 @@ beforeAll(async () => {
       disconnect() {}
     },
   );
-}, 30_000);
+});
 
 afterEach(() => {
   for (const root of roots.splice(0)) act(() => root.unmount());
   document.body.replaceChildren();
+  window.localStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -92,14 +103,15 @@ const course = (id: string, name: string, sceneCount: number) => ({
   updatedAt: 1,
 });
 
-interface PageState {
+interface RailState {
   readonly classrooms?: ReadonlyArray<ReturnType<typeof course>>;
   readonly pendingRuns?: readonly RunSnapshot[];
 }
 
 const DEFAULT_CLASSROOMS = [course(GENERATING, '劳动节小课', 2), course(READY, '随笔写作入门', 8)];
 
-async function renderPage(courseRuns: ReadonlyMap<string, RunSnapshot>, initial: PageState = {}) {
+async function renderRail(courseRuns: ReadonlyMap<string, RunSnapshot>, initial: RailState = {}) {
+  window.localStorage.setItem(RAIL_TAB_STORAGE_KEY, 'courses');
   const onOpenCourse = vi.fn();
   const onDiscardRun = vi.fn();
   const container = document.createElement('div');
@@ -107,26 +119,43 @@ async function renderPage(courseRuns: ReadonlyMap<string, RunSnapshot>, initial:
   document.body.append(container);
   const root = createRoot(container);
   roots.push(root);
-  const render = async (runs: ReadonlyMap<string, RunSnapshot>, state: PageState = {}) => {
+  const render = async (runs: ReadonlyMap<string, RunSnapshot>, state: RailState = {}) => {
     await act(async () => {
       root.render(
-        createElement(WorkspaceCoursesPage, {
+        createElement(WorkspaceRail, {
           courses: {
             classrooms: state.classrooms ?? DEFAULT_CLASSROOMS,
             state: 'ready',
             reload: vi.fn(),
             importInput: null,
-            triggerImport: vi.fn(),
-            importing: false,
+            discoveryContent: null,
             folders: [],
+            openNewFolder: vi.fn(),
             moveCourse: vi.fn(),
+            createAndMove: () => () => {},
             deleteCourse: vi.fn(async () => true),
           } as never,
           courseRuns: runs,
           pendingRuns: state.pendingRuns ?? [],
-          onOpenCourse,
-          onDeleteCourse: vi.fn(),
           onDiscardRun,
+          sessions: [],
+          sessionState: 'ready',
+          onReloadSessions: vi.fn(),
+          activeCourseId: null,
+          activeSessionId: null,
+          collapsed: false,
+          onToggleCollapsed: vi.fn(),
+          onOpenCourse,
+          onOpenSession: vi.fn(),
+          onNewSession: vi.fn(),
+          onGoHome: vi.fn(),
+          libraryOpen: false,
+          onOpenLibrary: vi.fn(),
+          onExitPro: vi.fn(),
+          onSessionDeleted: vi.fn(),
+          onRenameSession: vi.fn(async () => null),
+          onDeleteCourse: vi.fn(),
+          resizeHandle: null as ReactNode,
         }),
       );
     });
@@ -137,49 +166,60 @@ async function renderPage(courseRuns: ReadonlyMap<string, RunSnapshot>, initial:
 
 const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
 
-describe('a course being generated, on My courses', () => {
-  it('shows the run progress, cannot be opened and has no ⋯', async () => {
-    const { onOpenCourse } = await renderPage(new Map([[GENERATING, runOf(GENERATING)]]));
+describe('a course being generated, in the course rail', () => {
+  it('shows the run progress instead of the page count, and cannot be opened', async () => {
+    const { onOpenCourse } = await renderRail(new Map([[GENERATING, runOf(GENERATING)]]));
 
-    const card = byTestId(`workspace-courses-card-${GENERATING}`)!;
-    expect(card.dataset.generating).toBe('true');
-    expect(card.getAttribute('aria-disabled')).toBe('true');
-    expect(card.querySelector('.ws-course-card-status')!.textContent).toBe(
+    const row = byTestId(`pro-nav-course-${GENERATING}`)!;
+    expect(row.dataset.generating).toBe('true');
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+    expect(byTestId(`pro-nav-course-meta-${GENERATING}`)!.textContent).toBe(
       'classroom.runGenerating:{"completed":3,"total":8}',
     );
-    await act(async () => card.click());
+    expect(row.querySelector('.animate-spin')).not.toBeNull();
+    expect(row.title).toContain('workspace.courseGeneratingRowHint');
+
+    await act(async () => row.click());
     expect(onOpenCourse).not.toHaveBeenCalled();
-    expect(byTestId(`workspace-courses-more-${GENERATING}`)).toBeNull();
+
+    // Not draggable, not a drop target, and no rename/delete menu.
+    const wrap = row.parentElement!;
+    expect(wrap.hasAttribute('data-ws-drop-kind')).toBe(false);
+    expect(byTestId(`pro-nav-course-more-${GENERATING}`)).toBeNull();
 
     // The other course is untouched.
-    const ready = byTestId(`workspace-courses-card-${READY}`)!;
+    const ready = byTestId(`pro-nav-course-${READY}`)!;
     expect(ready.getAttribute('aria-disabled')).toBeNull();
-    expect(ready.textContent).toContain('workspace.sceneCount:{"count":8}');
-    expect(byTestId(`workspace-courses-more-${READY}`)).not.toBeNull();
+    expect(byTestId(`pro-nav-course-meta-${READY}`)!.textContent).toBe(
+      'workspace.sceneCount:{"count":8}',
+    );
   });
 
-  it('becomes an ordinary card, live, once its run leaves the active runs', async () => {
-    const view = await renderPage(new Map([[GENERATING, runOf(GENERATING)]]));
+  it('becomes an ordinary row, live, once its run leaves the active runs', async () => {
+    const view = await renderRail(new Map([[GENERATING, runOf(GENERATING)]]));
     await view.rerender(new Map());
 
-    const card = byTestId(`workspace-courses-card-${GENERATING}`)!;
-    expect(card.dataset.generating).toBeUndefined();
-    expect(card.getAttribute('aria-disabled')).toBeNull();
-    expect(byTestId(`workspace-courses-more-${GENERATING}`)).not.toBeNull();
-    await act(async () => card.click());
+    const row = byTestId(`pro-nav-course-${GENERATING}`)!;
+    expect(row.dataset.generating).toBeUndefined();
+    expect(row.getAttribute('aria-disabled')).toBeNull();
+    expect(row.parentElement!.getAttribute('data-ws-drop-kind')).toBe('course');
+    expect(byTestId(`pro-nav-course-meta-${GENERATING}`)!.textContent).toBe(
+      'workspace.sceneCount:{"count":2}',
+    );
+    await act(async () => row.click());
     expect(view.onOpenCourse).toHaveBeenCalledWith(GENERATING);
   });
 
   it('shows a paused run as paused, and opens the classroom where its Retry lives', async () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
-    const { onOpenCourse } = await renderPage(
+    const { onOpenCourse } = await renderRail(
       new Map([[GENERATING, runOf(GENERATING, { state: 'paused' })]]),
     );
 
-    const card = byTestId(`workspace-courses-card-${GENERATING}`)!;
-    expect(card.querySelector('.ws-course-card-status')!.textContent).toBe('classroom.runPaused');
-    expect(card.getAttribute('aria-disabled')).toBeNull();
-    await act(async () => card.click());
+    const row = byTestId(`pro-nav-course-${GENERATING}`)!;
+    expect(byTestId(`pro-nav-course-meta-${GENERATING}`)!.textContent).toBe('classroom.runPaused');
+    expect(row.getAttribute('aria-disabled')).toBeNull();
+    await act(async () => row.click());
     expect(onOpenCourse).not.toHaveBeenCalled();
     expect(open).toHaveBeenCalledWith(`/classroom/${GENERATING}`, '_blank', 'noopener');
   });
@@ -216,7 +256,7 @@ describe('the @ picker and a course being generated', () => {
   });
 });
 
-describe('a run whose course does not exist yet, on My courses', () => {
+describe('a run whose course does not exist yet, in the course rail', () => {
   const NEW = 'stage-new';
   const pending = runOf(NEW, {
     id: 'run-new',
@@ -225,58 +265,70 @@ describe('a run whose course does not exist yet, on My courses', () => {
     input: { requirement: '劳动节放假快乐小课' } as RunSnapshot['input'],
     progress: { scenesCompleted: 0, scenesTotal: 0 },
   });
-  const cardIds = () =>
+  const courseRowIds = () =>
     [
       ...document.querySelectorAll<HTMLElement>(
-        '[data-testid^="workspace-courses-card-"], [data-testid^="workspace-courses-run-"]',
+        '[data-testid^="pro-nav-course-"], [data-testid^="pro-nav-run-"]',
       ),
     ]
-      .map((card) => card.dataset.testid!)
-      .filter((id) => !id.startsWith('workspace-courses-run-more-'));
+      .map((row) => row.dataset.testid!)
+      .filter((id) => !/-(meta|more)-/.test(id));
 
-  it('is a placeholder card ahead of the courses, titled as the home card, and discardable', async () => {
-    const view = await renderPage(new Map(), { pendingRuns: [pending] });
+  it('is a placeholder row at the top of the courses, titled and labelled as the home card', async () => {
+    await renderRail(new Map(), { pendingRuns: [pending] });
 
-    const card = byTestId('workspace-courses-run-run-new')!;
-    expect(card.textContent).toContain('劳动节放假快乐小课');
-    expect(card.textContent).toContain('classroom.runOutlining');
-    expect(cardIds()).toEqual([
-      'workspace-courses-run-run-new',
-      `workspace-courses-card-${GENERATING}`,
-      `workspace-courses-card-${READY}`,
+    const row = byTestId('pro-nav-run-run-new')!;
+    expect(row.textContent).toContain('劳动节放假快乐小课');
+    expect(byTestId('pro-nav-run-meta-run-new')!.textContent).toBe('classroom.runOutlining');
+    expect(row.querySelector('.animate-spin')).not.toBeNull();
+    // Not draggable, not a drop target; its one action is the home card's discard.
+    expect(row.parentElement!.hasAttribute('data-ws-drop-kind')).toBe(false);
+    expect(byTestId('pro-nav-run-more-run-new')).not.toBeNull();
+    expect(courseRowIds()).toEqual([
+      'pro-nav-run-run-new',
+      `pro-nav-course-${GENERATING}`,
+      `pro-nav-course-${READY}`,
     ]);
-    expect(byTestId('workspace-courses-run-more-run-new')).not.toBeNull();
-    expect(view.onDiscardRun).not.toHaveBeenCalled();
   });
 
   it('opens what the home card opens: the run preview, in a new tab', async () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
-    const { onOpenCourse } = await renderPage(new Map(), { pendingRuns: [pending] });
-    await act(async () => byTestId('workspace-courses-run-run-new')!.click());
+    const { onOpenCourse } = await renderRail(new Map(), { pendingRuns: [pending] });
+    await act(async () => byTestId('pro-nav-run-run-new')!.click());
     expect(open).toHaveBeenCalledWith('/generation-preview?run=run-new', '_blank', 'noopener');
     expect(onOpenCourse).not.toHaveBeenCalled();
   });
 
-  it('becomes the course card once the course is listed, then an ordinary one', async () => {
-    const view = await renderPage(new Map(), { pendingRuns: [pending] });
+  it('becomes the course row in place once the course is listed, then an ordinary one', async () => {
+    const view = await renderRail(new Map(), { pendingRuns: [pending] });
 
+    // The run gained its course, the list has not caught up: still one placeholder.
     const withCourse = { ...pending, stageId: NEW, state: 'generating' as const };
+    await view.rerender(new Map([[NEW, withCourse]]), { pendingRuns: [withCourse] });
+    expect(courseRowIds()).toEqual([
+      'pro-nav-run-run-new',
+      `pro-nav-course-${GENERATING}`,
+      `pro-nav-course-${READY}`,
+    ]);
+
+    // The list lists it: the course row takes the placeholder's place, once.
     const listed = [course(NEW, '劳动节放假快乐小课', 1), ...DEFAULT_CLASSROOMS];
     await view.rerender(new Map([[NEW, withCourse]]), { classrooms: listed, pendingRuns: [] });
-    expect(cardIds()).toEqual([
-      `workspace-courses-card-${NEW}`,
-      `workspace-courses-card-${GENERATING}`,
-      `workspace-courses-card-${READY}`,
+    expect(courseRowIds()).toEqual([
+      `pro-nav-course-${NEW}`,
+      `pro-nav-course-${GENERATING}`,
+      `pro-nav-course-${READY}`,
     ]);
-    expect(byTestId(`workspace-courses-card-${NEW}`)!.dataset.generating).toBe('true');
+    expect(byTestId(`pro-nav-course-${NEW}`)!.dataset.generating).toBe('true');
 
+    // The run completed: an ordinary row.
     await view.rerender(new Map(), { classrooms: listed, pendingRuns: [] });
-    expect(byTestId(`workspace-courses-card-${NEW}`)!.dataset.generating).toBeUndefined();
+    expect(byTestId(`pro-nav-course-${NEW}`)!.dataset.generating).toBeUndefined();
   });
 
   it('disappears when the run ends without a course', async () => {
-    const view = await renderPage(new Map(), { pendingRuns: [pending] });
+    const view = await renderRail(new Map(), { pendingRuns: [pending] });
     await view.rerender(new Map(), { pendingRuns: [] });
-    expect(byTestId('workspace-courses-run-run-new')).toBeNull();
+    expect(byTestId('pro-nav-run-run-new')).toBeNull();
   });
 });

@@ -27,11 +27,8 @@ export function EditableSlideCanvasWithUI({
   onSelectionChange,
   onTransaction,
   insertItems,
-  renderInsertToolbar,
-  renderTextToolbar,
   insertToolbarPlacement = 'top',
   scale,
-  canvasPercentage,
   onScaleChange,
   elementIdPrefix = 'slide-element-',
   hiddenElementIds,
@@ -89,7 +86,6 @@ export function EditableSlideCanvasWithUI({
     selection,
     elementIdPrefix,
     labels: textLabels,
-    renderTextToolbar,
     dispatch,
     onSelectionChange,
   });
@@ -121,12 +117,12 @@ export function EditableSlideCanvasWithUI({
       ),
     [creation.insertContributions, elementAdapters.insertContributions, insertItems],
   );
-  const hasDockedToolbar = !renderInsertToolbar && resolvedInsertItems.length > 0;
+  const hasInsertToolbar = resolvedInsertItems.length > 0;
   const handleInsertToolbarRailSizeChange = useCallback((size: number) => {
     setInsertToolbarRailSize((current) => (current === size ? current : size));
   }, []);
   const canvasViewportStyle = useMemo<CSSProperties>(() => {
-    if (!hasDockedToolbar) return { position: 'relative', width: '100%', height: '100%' };
+    if (!hasInsertToolbar) return { position: 'relative', width: '100%', height: '100%' };
     if (insertToolbarPlacement === 'top') {
       return {
         bottom: 0,
@@ -143,7 +139,7 @@ export function EditableSlideCanvasWithUI({
       right: 0,
       top: 0,
     };
-  }, [hasDockedToolbar, insertToolbarPlacement, insertToolbarRailSize]);
+  }, [hasInsertToolbar, insertToolbarPlacement, insertToolbarRailSize]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -156,7 +152,6 @@ export function EditableSlideCanvasWithUI({
         canvasProps={{
           slide,
           scale,
-          canvasPercentage,
           onScaleChange,
           selection,
           onSelectionChange,
@@ -176,10 +171,9 @@ export function EditableSlideCanvasWithUI({
           ...textAdapter.canvasCallbacks,
         }}
       />
-      {resolvedInsertItems.length > 0 && renderInsertToolbar?.(resolvedInsertItems)}
       <EditorChrome
         insertToolbar={
-          hasDockedToolbar
+          hasInsertToolbar
             ? {
                 items: resolvedInsertItems,
                 label: labels.insert.toolbar,

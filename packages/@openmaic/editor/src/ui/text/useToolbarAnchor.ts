@@ -21,31 +21,13 @@ function equalRects(left: TrackedToolbarRect | null, right: TrackedToolbarRect |
   );
 }
 
-/** Keep a floating toolbar clear of the selected element's interactive rotation handle. */
-export function measureEditorToolbarAnchor(node: Element, elementId: string): TrackedToolbarRect {
-  const rect = node.getBoundingClientRect();
-  const handle = node
-    .closest('[data-editable-slide-canvas]')
-    ?.querySelector<HTMLElement>('[data-rotate-handle]');
-  if (handle?.dataset.rotateElementId !== elementId) return rect;
-  const knob = handle.getBoundingClientRect();
-  const top = Math.min(rect.top, knob.top);
+function toTrackedRect(rect: DOMRect): TrackedToolbarRect {
   return {
     left: rect.left,
+    top: rect.top,
     width: rect.width,
-    top,
-    height: Math.max(rect.bottom, knob.bottom) - top,
+    height: rect.height,
   };
-}
-
-function getAnchorNode(id: string) {
-  const wrapper = document.getElementById(id);
-  // The inner paint node inherits rotation; several outer box wrappers only
-  // carry the unrotated element coordinates.
-  return (
-    wrapper?.querySelector<HTMLElement>('.element-content') ??
-    wrapper?.querySelector<HTMLElement>('[class^="base-element-"]')
-  );
 }
 
 /**
@@ -66,7 +48,11 @@ export function useToolbarAnchor(
       return false;
     }
 
-    const node = getAnchorNode(elementIdPrefix + elementId);
+    const wrapper = document.getElementById(`${elementIdPrefix}${elementId}`);
+    const node =
+      wrapper?.querySelector<HTMLElement>(
+        '.base-element-text, .base-element-image, .base-element-shape, .base-element-table, .base-element-chart, .base-element-line, .base-element-latex, .base-element-video, .base-element-audio',
+      ) ?? null;
     if (!node || !node.isConnected) {
       const changed = lastRectRef.current !== null;
       lastRectRef.current = null;
@@ -74,7 +60,7 @@ export function useToolbarAnchor(
       return changed;
     }
 
-    const nextRect = measureEditorToolbarAnchor(node, elementId);
+    const nextRect = toTrackedRect(node.getBoundingClientRect());
     const changed = !equalRects(lastRectRef.current, nextRect);
     lastRectRef.current = nextRect;
     setAnchor((previous) => (equalRects(previous, nextRect) ? previous : nextRect));
@@ -90,12 +76,11 @@ export function useToolbarAnchor(
 
     let frameId: number | null = null;
     let stableFrames = 0;
-    let pointerDown = false;
 
     const scheduleFrame = () => {
       if (
         frameId !== null ||
-        (!pointerDown && stableFrames >= 20) ||
+        stableFrames >= 20 ||
         typeof window === 'undefined' ||
         typeof window.requestAnimationFrame === 'undefined'
       ) {
@@ -115,25 +100,19 @@ export function useToolbarAnchor(
 
     update();
 
-    const node = getAnchorNode(elementIdPrefix + elementId);
+    const wrapper = document.getElementById(`${elementIdPrefix}${elementId}`);
+    const node =
+      wrapper?.querySelector<HTMLElement>(
+        '.base-element-text, .base-element-image, .base-element-shape, .base-element-table, .base-element-chart, .base-element-line, .base-element-latex, .base-element-video, .base-element-audio',
+      ) ?? null;
     const observer =
       node && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
     if (observer && node) observer.observe(node);
 
-    const onPointerDown = () => {
-      pointerDown = true;
-      update();
-    };
-    const onPointerUp = () => {
-      pointerDown = false;
-      update();
-    };
-
     window.addEventListener('resize', update);
-    window.addEventListener('keydown', update);
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('pointerdown', update);
+    window.addEventListener('pointerup', update);
+    window.addEventListener('pointercancel', update);
     document.addEventListener('scroll', update, true);
 
     return () => {
@@ -142,10 +121,9 @@ export function useToolbarAnchor(
       }
       observer?.disconnect();
       window.removeEventListener('resize', update);
-      window.removeEventListener('keydown', update);
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('pointerdown', update);
+      window.removeEventListener('pointerup', update);
+      window.removeEventListener('pointercancel', update);
       document.removeEventListener('scroll', update, true);
     };
   }, [elementId, elementIdPrefix, measure]);

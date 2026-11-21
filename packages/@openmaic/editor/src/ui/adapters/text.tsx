@@ -8,17 +8,12 @@ import type {
 } from '../../react/text/types';
 import type { EditorDispatch } from '../runtime/useEditorDispatcher';
 import { TextToolbarOverlay } from '../text/TextToolbarOverlay';
-import type {
-  EditableSlideCanvasWithUIProps,
-  TextFormatToolbarProps,
-  TextToolbarLabels,
-} from '../types';
+import type { TextToolbarLabels } from '../types';
 
 interface TextAdapterOptions {
   readonly selection: Selection;
   readonly elementIdPrefix: string;
   readonly labels: TextToolbarLabels;
-  readonly renderTextToolbar?: EditableSlideCanvasWithUIProps['renderTextToolbar'];
   readonly dispatch: EditorDispatch;
   readonly onSelectionChange: (selection: Selection) => void;
 }
@@ -45,7 +40,6 @@ export function useTextEditorAdapter({
   selection,
   elementIdPrefix,
   labels,
-  renderTextToolbar,
   dispatch,
   onSelectionChange,
 }: TextAdapterOptions): TextAdapterResult {
@@ -113,21 +107,17 @@ export function useTextEditorAdapter({
           onDelete: deleteElement,
         }
       : {};
-  let overlay: ReactNode = null;
-  if (activeController && activeFormat) {
-    const toolbarProps: TextFormatToolbarProps = {
-      elementId: editingId,
-      format: activeFormat,
-      labels,
-      onCommand: (command) => activeController.execute(command),
-      ...elementActions,
-    };
-    overlay = renderTextToolbar ? (
-      renderTextToolbar(toolbarProps)
-    ) : (
-      <TextToolbarOverlay {...toolbarProps} elementIdPrefix={elementIdPrefix} />
-    );
-  }
+  const overlay =
+    activeController && activeFormat ? (
+      <TextToolbarOverlay
+        elementId={editingId}
+        elementIdPrefix={elementIdPrefix}
+        format={activeFormat}
+        labels={labels}
+        onCommand={(command) => activeController.execute(command)}
+        {...elementActions}
+      />
+    ) : null;
 
   return {
     editorFocused,

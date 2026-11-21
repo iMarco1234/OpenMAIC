@@ -5,7 +5,6 @@ import type { CanvasCommands } from './canvasCommands';
 
 interface CanvasShortcutEvent {
   readonly key: string;
-  readonly defaultPrevented?: boolean;
   readonly ctrlKey: boolean;
   readonly metaKey: boolean;
   readonly altKey: boolean;
@@ -32,11 +31,7 @@ function isEditableTarget(target: unknown): boolean {
     tagName === 'textarea' ||
     tagName === 'select' ||
     Boolean(element.isContentEditable) ||
-    Boolean(
-      element.closest?.(
-        '.ProseMirror, [contenteditable="true"], [role="listbox"], [role="dialog"]',
-      ),
-    )
+    Boolean(element.closest?.('.ProseMirror, [contenteditable="true"]'))
   );
 }
 
@@ -46,7 +41,6 @@ export function handleCanvasShortcut(
   options: CanvasShortcutOptions = {},
 ): boolean {
   if (
-    event.defaultPrevented ||
     options.enabled === false ||
     options.pickActive ||
     event.repeat ||

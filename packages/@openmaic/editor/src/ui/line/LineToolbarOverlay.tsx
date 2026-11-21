@@ -59,7 +59,6 @@ export function LineToolbarOverlay({
     <div
       ref={overlayRef}
       data-toolbar-overlay=""
-      data-toolbar-anchor={elementIdPrefix + element.id}
       data-side={position?.side ?? placement}
       style={{
         left: position ? `${position.left}px` : '0px',

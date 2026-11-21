@@ -117,7 +117,7 @@ class TestResizeObserver {
 }
 
 describe.each([
-  ['Legacy', 'false'],
+  ['Legacy', undefined],
   ['New', 'true'],
 ] as const)('SlideElementPickOverlay with the real %s playback renderer', (_name, flag) => {
   const rendererFlag = 'NEXT_PUBLIC_MAIC_PLAYBACK_RENDERER_ENABLED';
@@ -128,7 +128,8 @@ describe.each([
 
   beforeEach(() => {
     originalFlag = process.env[rendererFlag];
-    process.env[rendererFlag] = flag;
+    if (flag === undefined) delete process.env[rendererFlag];
+    else process.env[rendererFlag] = flag;
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     vi.stubGlobal('ResizeObserver', TestResizeObserver);
     frames = [];
@@ -189,7 +190,7 @@ describe.each([
     const initialFrames = frames.splice(0);
     act(() => initialFrames.forEach((callback) => callback(0)));
 
-    if (flag === 'true') {
+    if (flag) {
       expect(
         container.querySelector('.slide-element-hit-target .base-element-text'),
       ).not.toBeNull();

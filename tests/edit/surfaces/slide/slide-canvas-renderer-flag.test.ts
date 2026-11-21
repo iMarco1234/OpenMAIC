@@ -73,7 +73,6 @@ vi.mock('@/lib/contexts/scene-context', () => ({
 }));
 
 vi.mock('@/components/edit/surfaces/slide/AnchoredTextBar', () => ({
-  renderClassroomTextToolbar: () => null,
   AnchoredTextBar: () => {
     state.legacyTextBarRenders += 1;
     return null;
@@ -125,7 +124,6 @@ vi.mock('@/lib/store/canvas', () => ({
       activeElementIdList: () => ['text-1'],
       hiddenElementIdList: () => [],
       editingElementId: () => 'text-1',
-      canvasPercentage: () => 90,
       canvasScale: () => 1,
       pickTarget: () => state.pickTarget,
       setActiveElementIdList: () => state.setActiveElementIdList,
@@ -143,7 +141,6 @@ vi.mock('@openmaic/editor/ui', () => ({
   },
 }));
 
-import { InsertToolbarSlot } from '@/components/edit/EditShell/FloatingInsertToolbar';
 import { SlideCanvas } from '@/components/edit/surfaces/slide/SlideCanvas';
 
 beforeEach(() => {
@@ -161,9 +158,7 @@ beforeEach(() => {
 
 describe('slide editor renderer feature flag', () => {
   it('uses the renderer editor host bridge when enabled', () => {
-    const markup = renderToStaticMarkup(
-      createElement(InsertToolbarSlot.Provider, { value: () => null }, createElement(SlideCanvas)),
-    );
+    const markup = renderToStaticMarkup(createElement(SlideCanvas));
 
     expect(markup).toContain('data-renderer-editor');
     expect(state.legacyCanvasRenders).toBe(0);
@@ -171,8 +166,7 @@ describe('slide editor renderer feature flag', () => {
     expect(state.lastRendererProps).toMatchObject({
       slide: content.canvas,
       selection: { elementIds: ['text-1'], primaryId: 'text-1', editingId: 'text-1' },
-      renderInsertToolbar: expect.any(Function),
-      renderTextToolbar: expect.any(Function),
+      insertToolbarPlacement: 'top',
       snapping: true,
     });
     expect(state.lastRendererProps?.host).toMatchObject({

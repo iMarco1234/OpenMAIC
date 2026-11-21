@@ -1,4 +1,3 @@
-import { chapterSourceFromBlocks, withChapterSource } from '@/lib/document/chapter-source';
 /**
  * Shared MinerU result parser.
  * Used by both self-hosted (pdf-providers.ts) and cloud (mineru-cloud.ts) paths.
@@ -110,18 +109,14 @@ export function extractMinerUResult(fileResult: Record<string, unknown>): Parsed
       `${markdown.length} chars of markdown`,
   );
 
-  return withChapterSource(
-    {
-      text: markdown,
-      images,
-      metadata: {
-        pageCount,
-        parser: 'mineru',
-        textFormat: 'markdown',
-        imageMapping,
-        pdfImages,
-      },
+  return {
+    text: markdown,
+    images,
+    metadata: {
+      pageCount,
+      parser: 'mineru',
+      imageMapping,
+      pdfImages,
     },
-    Array.isArray(contentList) ? chapterSourceFromBlocks(contentList, pageCount) : undefined,
-  );
+  };
 }

@@ -11,8 +11,7 @@
  */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSettingsStore } from '@/lib/store/settings';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const lifecycle = vi.hoisted(() => ({ timelineMounts: 0 }));
 const canvas = vi.hoisted(() => ({
@@ -52,8 +51,12 @@ vi.mock('@/components/edit/ActionsBar/ActionsBar', async () => {
     }, []);
     return h(
       'div',
-      { 'data-testid': 'timeline-body' },
-      h('button', { 'data-testid': 'timeline-expand', onClick: dock.expand }, 'expand'),
+      { 'data-testid': 'timeline-body', 'data-collapsed': String(dock.collapsed) },
+      h(
+        'button',
+        { 'data-testid': 'timeline-fold', onClick: dock.toggleCollapsed },
+        'edit.timeline.collapseAxis',
+      ),
       h(
         'button',
         { 'data-testid': 'tts-batch', onClick: () => setRunning(true), disabled: running },
@@ -282,37 +285,25 @@ describe('EditDock pick-mode cleanup', () => {
 });
 
 describe('EditDock fold', () => {
-  beforeEach(() => {
-    useSettingsStore.setState({ dockHeight: 192, dockCollapsed: false });
-  });
-
-  it('folds to the bar alone, at the shared height, and the timeline can open it', async () => {
+  it('keeps the global edit bar while the timeline is folded, at the fixed height', async () => {
     const host = await renderDock();
     const section = host.querySelector('[data-testid="edit-dock"]') as HTMLElement;
-    expect(section.style.height).toBe('192px');
+    // 224 timeline + 36 bar. The height is FIXED: the height-drag handle above
+    // the bar was removed (owner decision), so only the fold moves it.
+    expect(section.style.height).toBe('260px');
+    expect(section.querySelector('.cursor-row-resize')).toBeNull();
 
-    await click(host.querySelector('[data-testid="dock-fold"]'));
-    expect(section.style.height).toBe('33px');
+    await click(host.querySelector('[data-testid="timeline-fold"]'));
+    // 86 collapsed timeline + 36 bar: folding never folds the bar away.
+    expect(section.style.height).toBe('122px');
     expect(host.querySelector('[data-testid="edit-dock-bar"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="edit-dock-roster"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="element-ref-arm"]')).not.toBeNull();
-    // The folded dock keeps its edge: dragging it up unfolds the dock.
-    expect(host.querySelector('[data-testid="dock-resize"]')?.getAttribute('data-folded')).toBe(
-      'true',
-    );
+    expect(
+      host.querySelector('[data-testid="timeline-body"]')?.getAttribute('data-collapsed'),
+    ).toBe('true');
 
-    await click(host.querySelector('[data-testid="timeline-expand"]'));
-    expect(section.style.height).toBe('192px');
-    expect(host.querySelector('[data-testid="dock-resize"]')).not.toBeNull();
-    expect(host.querySelector('[data-testid="dock-resize"]')?.hasAttribute('data-folded')).toBe(
-      false,
-    );
-  });
-
-  it('takes the height set in the other mode', async () => {
-    useSettingsStore.setState({ dockHeight: 260 });
-    const host = await renderDock();
-    const section = host.querySelector('[data-testid="edit-dock"]') as HTMLElement;
+    await click(host.querySelector('[data-testid="timeline-fold"]'));
     expect(section.style.height).toBe('260px');
   });
 
@@ -322,8 +313,8 @@ describe('EditDock fold', () => {
 
     await click(host.querySelector('[data-testid="element-ref-arm"]'));
     await click(host.querySelector('[data-testid="edit-dock-roster"]'));
-    await click(host.querySelector('[data-testid="dock-fold"]'));
-    await click(host.querySelector('[data-testid="dock-fold"]'));
+    await click(host.querySelector('[data-testid="timeline-fold"]'));
+    await click(host.querySelector('[data-testid="timeline-fold"]'));
 
     expect(host.querySelector('[data-testid="tts-batch"]')?.textContent).toBe('running');
     expect(lifecycle.timelineMounts).toBe(1);

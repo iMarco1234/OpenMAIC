@@ -17,11 +17,6 @@ vi.mock('server-only', () => ({}));
 import { CHECKPOINT_RUNNER } from '@/lib/server/sandbox/checkpoint-runner';
 import { checkpointPolicy, type CheckpointPolicy } from '@/lib/server/sandbox/checkpoint-policy';
 import { checkpointChunks } from '@/lib/server/sandbox/checkpoint-storage';
-
-// Some tests below run the sandbox's own shell and Python scripts, which target
-// the Linux sandbox. Windows has no `/bin/sh` or `python3` to run them with.
-const onWindows = process.platform === 'win32';
-
 const directories: string[] = [];
 function setup() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'checkpoint-test-')));
@@ -62,8 +57,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe('streamed checkpoint archive', () => {
-  it('roundtrips >16 MiB, application settings, empty directories and executable files deterministically', (ctx) => {
-    if (onWindows) return ctx.skip();
+  it('roundtrips >16 MiB, application settings, empty directories and executable files deterministically', () => {
     const x = setup();
     const data = Buffer.alloc(18 * 1024 ** 2, 137);
     writeFileSync(join(x.project, 'large.bin'), data);
@@ -88,8 +82,7 @@ describe('streamed checkpoint archive', () => {
     x.run('export', second);
     expect(readFileSync(second).equals(first)).toBe(true);
   }, 20000);
-  it('rejects links and configured size overflow', (ctx) => {
-    if (onWindows) return ctx.skip();
+  it('rejects links and configured size overflow', () => {
     const x = setup();
     symlinkSync('/etc/passwd', join(x.project, 'outside'));
     try {
@@ -112,7 +105,7 @@ describe('streamed checkpoint archive', () => {
       );
     }
   });
-  it.skipIf(onWindows).each([
+  it.each([
     ['vanishes', "import os\ndef gone(*_): raise FileNotFoundError(2, 'gone')\nos.lstat = gone\n"],
     [
       'shrinks',
@@ -140,8 +133,7 @@ describe('streamed checkpoint archive', () => {
       );
     }
   });
-  it('validates the whole archive before touching original application data', (ctx) => {
-    if (onWindows) return ctx.skip();
+  it('validates the whole archive before touching original application data', () => {
     const x = setup();
     writeFileSync(join(x.app, 'settings'), 'original');
     execFileSync('python3', [
@@ -159,8 +151,7 @@ with tarfile.open(sys.argv[1],'w') as t:
     expect(() => x.run('import')).toThrow();
     expect(readFileSync(join(x.app, 'settings'), 'utf8')).toBe('original');
   });
-  it('refuses to overwrite an unrelated populated project', (ctx) => {
-    if (onWindows) return ctx.skip();
+  it('refuses to overwrite an unrelated populated project', () => {
     const x = setup();
     writeFileSync(join(x.project, 'file'), 'before');
     x.run('export');

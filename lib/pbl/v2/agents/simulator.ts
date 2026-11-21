@@ -40,7 +40,6 @@ import type {
   PBLAgentThread,
 } from '../types';
 import type { PBLSSEEvent } from '../api/sse';
-import { streamPBLParts } from '../api/llm-stream';
 import { recordEvent } from '../operations/kernel/engagement';
 import {
   currentMicrotask,
@@ -523,8 +522,8 @@ export async function* runSimulatorTurn(
         : [{ role: 'user' as const, content: userMessage.trim() || '…' }];
 
   // One streaming attempt of the character line. Yields token deltas as they
-  // arrive and returns the accumulated text (trimmed). A rejected stream
-  // reaches the caller's error handler. Error parts can leave an empty attempt.
+  // arrive and returns the accumulated text (trimmed). Throws on stream error
+  // so the caller can decide retry vs surface.
   async function* streamCharacterLine(): AsyncGenerator<PBLSSEEvent, string, void> {
     let acc = '';
     // The incoming per-request / stage-route config is what applies, handed to
@@ -543,10 +542,17 @@ export async function* runSimulatorTurn(
       'pbl-v2-simulator',
       thinkingConfig,
     );
-    for await (const part of streamPBLParts(stream.fullStream)) {
-      if (part.type !== 'token') continue;
-      acc += part.delta;
-      yield part;
+    for await (const part of stream.fullStream) {
+      if (part.type === 'text-delta') {
+        const delta =
+          (part as unknown as { text?: string; textDelta?: string }).text ??
+          (part as unknown as { textDelta?: string }).textDelta ??
+          '';
+        if (delta) {
+          acc += delta;
+          yield { type: 'token', delta };
+        }
+      }
     }
     return acc.trim();
   }

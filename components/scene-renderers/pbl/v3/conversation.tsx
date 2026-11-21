@@ -1,7 +1,7 @@
 'use client';
 import { parseFileReference, type FileReference } from '@/lib/pbl/v3/file-reference';
 import { hasTaskDrawer, TASK_DRAWER_LINK } from '@/lib/pbl/v3/presentation';
-import { useState, type MouseEvent, type ReactNode } from 'react';
+import { useState, type MouseEvent } from 'react';
 import {
   Check,
   Copy,
@@ -189,7 +189,6 @@ function ConversationEntry({
   ) : entry.speaker === 'user' ? (
     <UserBubble
       key={entry.id}
-      tone="primary"
       text={entry.parts.flatMap((p) => (p.kind === 'text' ? [p.text] : [])).join('\n')}
     />
   ) : (
@@ -202,22 +201,18 @@ export function LearningConversation({
   requesting = false,
   modalActive = false,
   pendingMessage = null,
-  waitingToStart = false,
   onOpenFile,
   onOpenReport,
   onOpenTask,
-  overview,
 }: {
   view: LearningView;
   onOpenReport?: () => void;
   onOpenFile?: (reference: FileReference) => void;
   onOpenTask?: () => void;
-  overview?: ReactNode;
   sent: number;
   requesting?: boolean;
   modalActive?: boolean;
   pendingMessage?: LearningConversationEntry | null;
-  waitingToStart?: boolean;
 }) {
   const { t } = useI18n();
   const entries: LearningConversationEntry[] =
@@ -251,22 +246,9 @@ export function LearningConversation({
     }
   };
   const placeholder = (requesting || view.busy) && !entries.some((e) => e.status === 'running');
-  if (waitingToStart) {
-    // An ordinary reading pane: no tail observer runs before the learner starts.
-    return (
-      <div
-        className="min-h-0 flex-1 overflow-y-auto p-4"
-        data-testid="pbl-project-start"
-        tabIndex={0}
-      >
-        {overview}
-      </div>
-    );
-  }
   return (
     <ConversationViewport
       key={view.id}
-      header={overview}
       sent={sent}
       hidden={modalActive}
       generating={requesting || view.busy || entries.some((entry) => entry.status === 'running')}
@@ -275,7 +257,6 @@ export function LearningConversation({
       <ConversationHistory
         id={view.id}
         sources={view.conversationHistory ?? []}
-        milestones={view.milestones}
         renderEntry={(entry, dismiss) => (
           <div onClick={(event) => openReference(event, dismiss)}>
             <ConversationEntry
@@ -297,7 +278,7 @@ export function LearningConversation({
           {t('pblV3.conversationLimited')}
         </p>
       )}
-      {!entries.length && !view.busy && !requesting && (
+      {!entries.length && !view.busy && (
         <p className="text-sm text-muted-foreground">{t('pblV3.journey.startConversation')}</p>
       )}
       {entries.map((entry) => (

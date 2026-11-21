@@ -1,4 +1,3 @@
-import { getChapterSource, withChapterSource } from './chapter-source';
 import type { ParsedPdfContent } from '@/lib/types/pdf';
 import type {
   DocumentArtifact,
@@ -52,6 +51,10 @@ function pdfLayoutType(value: unknown): NonNullable<ParsedPdfContent['layout']>[
     : 'text';
 }
 
+function isMinerUMarkdownParser(parser: unknown): boolean {
+  return parser === 'mineru' || parser === 'mineru-cloud';
+}
+
 export function parsedPdfToDocumentArtifact(
   parsed: ParsedPdfContent,
   input: DocumentExtractorInput,
@@ -61,7 +64,7 @@ export function parsedPdfToDocumentArtifact(
   if (parsed.text) {
     blocks.push({
       id: 'document-text',
-      type: parsed.metadata?.textFormat === 'markdown' ? 'markdown' : 'text',
+      type: isMinerUMarkdownParser(parsed.metadata?.parser) ? 'markdown' : 'text',
       text: parsed.text,
     });
   }
@@ -118,27 +121,19 @@ export function parsedPdfToDocumentArtifact(
           data: src,
         }));
 
-  return withChapterSource(
-    {
-      metadata: {
-        fileName: input.fileName ?? parsed.metadata?.fileName,
-        fileSize: input.fileSize ?? parsed.metadata?.fileSize,
-        mimeType: input.mimeType,
-        pageCount: parsed.metadata?.pageCount,
-        providerId: input.config.providerId,
-        processingTime: parsed.metadata?.processingTime,
-      },
-      blocks,
-      assets,
-      diagnostics: (parsed.diagnostics ?? []).map((diagnostic) => ({
-        severity: diagnostic.severity,
-        message: diagnostic.message,
-        providerId: input.config.providerId,
-      })),
-      providerRaw: parsed,
+  return {
+    metadata: {
+      fileName: input.fileName ?? parsed.metadata?.fileName,
+      fileSize: input.fileSize ?? parsed.metadata?.fileSize,
+      mimeType: input.mimeType,
+      pageCount: parsed.metadata?.pageCount,
+      providerId: input.config.providerId,
+      processingTime: parsed.metadata?.processingTime,
     },
-    input.config.providerId === 'mineru' ? getChapterSource(parsed) : undefined,
-  );
+    blocks,
+    assets,
+    providerRaw: parsed,
+  };
 }
 
 export function documentArtifactToParsedPdfContent(artifact: DocumentArtifact): ParsedPdfContent {
@@ -179,38 +174,29 @@ export function documentArtifactToParsedPdfContent(artifact: DocumentArtifact): 
       content: block.text ?? '',
       position: bboxToPosition(block.bbox),
     }));
-  const diagnostics = artifact.diagnostics?.length ? artifact.diagnostics : raw?.diagnostics;
 
-  return withChapterSource(
-    {
-      text,
-      images,
-      ...(tables.length > 0 ? { tables } : {}),
-      ...(formulas.length > 0 ? { formulas } : {}),
-      ...(layout.length > 0 ? { layout } : {}),
-      ...(diagnostics?.length
-        ? {
-            diagnostics: diagnostics.map(({ severity, message }) => ({ severity, message })),
-          }
-        : {}),
-      metadata: {
-        ...rawMetadata,
-        fileName: artifact.metadata.fileName,
-        fileSize: artifact.metadata.fileSize,
-        pageCount: artifact.metadata.pageCount ?? rawMetadata?.pageCount ?? 0,
-        parser: rawMetadata?.parser,
-        processingTime: artifact.metadata.processingTime ?? rawMetadata?.processingTime,
-        imageMapping,
-        pdfImages: imageAssets.map((asset) => ({
-          id: asset.id,
-          src: asset.data as string,
-          pageNumber: asset.pageNumber ?? 0,
-          description: asset.description,
-          width: asset.width,
-          height: asset.height,
-        })),
-      },
+  return {
+    text,
+    images,
+    ...(tables.length > 0 ? { tables } : {}),
+    ...(formulas.length > 0 ? { formulas } : {}),
+    ...(layout.length > 0 ? { layout } : {}),
+    metadata: {
+      ...rawMetadata,
+      fileName: artifact.metadata.fileName,
+      fileSize: artifact.metadata.fileSize,
+      pageCount: artifact.metadata.pageCount ?? rawMetadata?.pageCount ?? 0,
+      parser: rawMetadata?.parser,
+      processingTime: artifact.metadata.processingTime ?? rawMetadata?.processingTime,
+      imageMapping,
+      pdfImages: imageAssets.map((asset) => ({
+        id: asset.id,
+        src: asset.data as string,
+        pageNumber: asset.pageNumber ?? 0,
+        description: asset.description,
+        width: asset.width,
+        height: asset.height,
+      })),
     },
-    getChapterSource(artifact),
-  );
+  };
 }

@@ -6,10 +6,11 @@
  * POST /api/generate/scene-actions.
  */
 import { prepareVisionImages } from '../vision-images';
-import { createGenerationAiCall } from '../ai-call';
+import { callLLM } from '@/lib/ai/llm';
 import {
   generateSceneActions as generateActions,
   buildCompleteScene,
+  buildVisionUserContent,
   type SceneGenerationContext,
   type AgentInfo,
 } from '@openmaic/generation';
@@ -62,13 +63,64 @@ export async function generateSceneActions(
   ctx: StepContext,
 ): Promise<SceneActionsResult> {
   const { outline, allOutlines, content, stageId, agents, userProfile, languageDirective } = input;
-  const { modelString } = input.model;
+  const {
+    model: languageModel,
+    modelInfo,
+    modelString,
+    thinkingConfig,
+    serverManaged,
+  } = input.model;
   const { log } = ctx;
 
-  const aiCall = createGenerationAiCall(input.model, 'scene-actions', {
-    abortSignal: ctx.signal,
-    resolveVisionImages: (images) => prepareVisionImages(images, log),
-  });
+  // Detect vision capability
+  const hasVision = !!modelInfo?.capabilities?.vision;
+
+  // AI call function (actions typically don't use vision, but kept for consistency)
+  const aiCall = async (
+    systemPrompt: string,
+    userPrompt: string,
+    images?: Array<{ id: string; src: string }>,
+  ): Promise<string> => {
+    if (images?.length && hasVision) {
+      const safeImages = await prepareVisionImages(images, log);
+      const result = await callLLM(
+        {
+          model: languageModel,
+          // A run cancels the call when it loses its lease or its course.
+          abortSignal: ctx.signal,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user' as const,
+              content: buildVisionUserContent(userPrompt, safeImages),
+            },
+          ],
+          maxOutputTokens: modelInfo?.outputWindow,
+          maxRetries: 0,
+        },
+        'scene-actions',
+        undefined,
+        thinkingConfig,
+        { serverManaged },
+      );
+      return result.text;
+    }
+    const result = await callLLM(
+      {
+        model: languageModel,
+        abortSignal: ctx.signal,
+        system: systemPrompt,
+        prompt: userPrompt,
+        maxOutputTokens: modelInfo?.outputWindow,
+        maxRetries: 0,
+      },
+      'scene-actions',
+      undefined,
+      thinkingConfig,
+      { serverManaged },
+    );
+    return result.text;
+  };
 
   // ── Build cross-scene context ──
   const allTitles = allOutlines.map((o) => o.title);

@@ -42,20 +42,6 @@ const log = createLogger('StageStore');
 /** Virtual scene ID used when the user navigates to a page still being generated */
 export const PENDING_SCENE_ID = '__pending__';
 
-/**
- * The pending slot means a page still being generated. A course that has none left has
- * no such slot, though older documents saved it as where they were (it used to be the
- * completion page too): those land on the last real page.
- */
-export function resolveLoadedSceneId(
-  currentSceneId: string | null,
-  scenes: readonly { id: string }[],
-  generatingOutlines: readonly unknown[],
-): string | null {
-  if (currentSceneId !== PENDING_SCENE_ID || generatingOutlines.length > 0) return currentSceneId;
-  return scenes.at(-1)?.id ?? currentSceneId;
-}
-
 export type StageSceneLoadToken = number;
 
 let latestStageSceneLoadToken = 0;
@@ -150,13 +136,6 @@ let consecutiveFlushFailures = 0;
 function nextSaveDelayMs(): number {
   if (consecutiveFlushFailures === 0) return SAVE_DEBOUNCE_MS;
   return Math.min(SAVE_DEBOUNCE_MS * 2 ** consecutiveFlushFailures, SAVE_BACKOFF_MAX_MS);
-}
-
-/** A refused write is said out loud, once per course (`save-refusal-notice`). */
-function noticeIfRefused(stageId: string, error: unknown): void {
-  void import('@/lib/store/save-refusal-notice')
-    .then((module) => module.noticeRefusedSave(stageId, error))
-    .catch(() => undefined);
 }
 
 function recordFlushOutcome(failed: boolean): void {
@@ -1215,7 +1194,6 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
         return true;
       } catch (error) {
         log.error('Failed to save to storage:', error);
-        noticeIfRefused(stage.id, error);
         return false;
       }
     };
@@ -1385,7 +1363,7 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
         set({
           stage: data.stage,
           scenes: migrated,
-          currentSceneId: resolveLoadedSceneId(data.currentSceneId, migrated, generatingOutlines),
+          currentSceneId: data.currentSceneId,
           chats: data.chats,
           chatSnapshot: data.chatSnapshot ?? { sessions: [], restoreMarker: undefined },
           outlines,
@@ -1518,7 +1496,6 @@ function startFlushRound(): FlushRound | null {
       return failedKeys;
     } catch (error) {
       log.error(`Failed to flush pending stage changes for ${stageId}:`, error);
-      noticeIfRefused(stageId, error);
       recordFlushOutcome(true);
       throw error;
     } finally {

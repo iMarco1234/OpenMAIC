@@ -1,7 +1,6 @@
 'use client';
 
-import { setExportBusy, useExportBusy } from '@/lib/store/export-busy';
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { useStageStore } from '@/lib/store/stage';
@@ -63,7 +62,7 @@ export interface ExportHtmlOptions {
 }
 
 export function useExportHtml() {
-  const exporting = useExportBusy('html');
+  const [exporting, setExporting] = useState(false);
   const { t, locale } = useI18n();
 
   const exportStandaloneHtml = useCallback(
@@ -71,7 +70,7 @@ export function useExportHtml() {
       const { stage, scenes } = useStageStore.getState();
       if (!stage?.id || scenes.length === 0) return;
 
-      setExportBusy('html', true);
+      setExporting(true);
       const toastId = toast.loading(t('export.exporting'));
 
       try {
@@ -173,7 +172,7 @@ export function useExportHtml() {
         log.error('Standalone HTML export failed:', error);
         toast.error(t('export.exportFailed'), { id: toastId });
       } finally {
-        setExportBusy('html', false);
+        setExporting(false);
       }
     },
     [t, locale],

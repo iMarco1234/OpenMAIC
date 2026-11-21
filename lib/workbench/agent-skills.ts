@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { forgetRememberedSkills } from './remembered-skills';
 import {
   defaultWorkbenchTranslator,
   type WorkbenchCopyKey,
@@ -114,7 +113,6 @@ export function invalidateAgentSkills(): Promise<AgentSkillInfo[]> {
 export function refreshAgentSkillsForOwnerChange(): Promise<AgentSkillInfo[]> {
   ownerEpoch += 1;
   skillsCache = null;
-  forgetRememberedSkills();
   publish({ skills: [], loading: true, error: null });
   const pending = [skillsRequest, invalidationRequest].filter(
     (request): request is Promise<AgentSkillInfo[]> => request !== null,

@@ -73,8 +73,7 @@ export const HOST_AGENT_LIFECYCLE = {
    *
    *   {
    *     question: string,
-   *     details?: string,
-   *     options?: { id: string; label: string; recommended?: true }[],
+   *     options?: { id: string; label: string }[],
    *     multiSelect?: boolean
    *   }
    *

@@ -1,12 +1,11 @@
 import type { Slide } from '@openmaic/dsl';
 
 import { db } from '@/lib/device-storage/database';
-import type { CourseThumbnail } from '@/lib/utils/course-cover';
 import { sha256Hex } from '@/lib/legacy-browser-import/digest';
 import { createLogger } from '@/lib/logger';
 import { slideMediaReferenceSlots } from '@/lib/media/slide-media-slots';
 import { getPersistenceLearnerKey } from '@/lib/persistence/bootstrap';
-import { loadCourseCover } from '@/lib/utils/stage-storage';
+import { loadFirstSlideThumbnail } from '@/lib/utils/stage-storage';
 
 /**
  * The home library's thumbnail cache, in the device cache (`courseThumbnails`
@@ -174,40 +173,31 @@ export async function evictCourseThumbnails(
 }
 
 /**
- * Load a course's cover at `version` (its `updatedAt`): from the cache when
- * it holds that version, otherwise from the server.
- *
- * Only first-slide covers use the cache. An interactive cover is rendered
- * live from the current scene on every visit, so it is neither read from nor
- * written to the cache — a slide-less course is simply read again next time,
- * and an edit is reflected the moment it is saved. A cached null is a miss
- * for the same reason, so nulls are neither trusted nor written; a course
- * with no cover at all is read per visit too.
+ * Load a course's thumbnail at `version` (its `updatedAt`): from the cache
+ * when it holds that version, otherwise from the server, keeping a complete
+ * result for the next visit.
  */
 export async function loadCourseThumbnail(
   stageId: string,
   version: number,
   signal: AbortSignal,
-): Promise<CourseThumbnail | null> {
+): Promise<Slide | null> {
   let ownerKey: string | undefined;
   try {
     ownerKey = await courseThumbnailOwnerKey();
-    // Only a cached first slide is trusted: a cached null just means "no
-    // slide", which since live covers is no longer "no cover" — the course is
-    // read again instead (also migrating records written before them).
     const cached = await readCachedCourseThumbnail(ownerKey, stageId, version);
-    if (cached) return { kind: 'slide', slide: cached };
+    if (cached !== undefined) return cached;
   } catch (error) {
     log.warn(`Could not read the cached thumbnail of ${stageId}:`, error);
   }
   signal.throwIfAborted();
-  const { cover, complete } = await loadCourseCover(stageId, signal);
-  if (ownerKey !== undefined && complete && !signal.aborted && cover?.kind === 'slide') {
+  const { slide, complete } = await loadFirstSlideThumbnail(stageId, signal);
+  if (ownerKey !== undefined && complete && !signal.aborted) {
     // Not awaited: the card shows the thumbnail now. The write reads the
     // slide's object URLs synchronously, before the loader can release them.
-    void writeCachedCourseThumbnail(ownerKey, stageId, version, cover.slide).catch(
-      (error: unknown) => log.warn(`Could not cache the thumbnail of ${stageId}:`, error),
+    void writeCachedCourseThumbnail(ownerKey, stageId, version, slide).catch((error: unknown) =>
+      log.warn(`Could not cache the thumbnail of ${stageId}:`, error),
     );
   }
-  return cover;
+  return slide;
 }

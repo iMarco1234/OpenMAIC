@@ -10,8 +10,7 @@
  *
  * App-side / impure: store read, sonner toast, `saveAs` download.
  */
-import { isExportBusy, setExportBusy, useExportBusy } from '@/lib/store/export-busy';
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
@@ -195,11 +194,12 @@ export function buildScriptFileName(stageName: string, ext: ScriptFormat): strin
 /** Shared export hook — exposes Markdown and DOCX downloads. */
 export function useExportScript() {
   const { t } = useI18n();
-  const exporting = useExportBusy('script');
+  const [exporting, setExporting] = useState(false);
+  const exportingRef = useRef(false);
 
   const downloadScript = useCallback(
     async (format: ScriptFormat) => {
-      if (isExportBusy('script')) return;
+      if (exportingRef.current) return;
 
       const stageState = useStageStore.getState();
       const mediaTasks = useMediaGenerationStore.getState().tasks;
@@ -217,7 +217,8 @@ export function useExportScript() {
 
       const isAsync = format === 'docx';
       if (isAsync) {
-        setExportBusy('script', true);
+        exportingRef.current = true;
+        setExporting(true);
       }
 
       try {
@@ -242,7 +243,8 @@ export function useExportScript() {
         toast.error(t('export.exportFailed'));
       } finally {
         if (isAsync) {
-          setExportBusy('script', false);
+          exportingRef.current = false;
+          setExporting(false);
         }
       }
     },

@@ -29,16 +29,6 @@ describe('stage edit mode store', () => {
     expect(useCanvasStore.getState().handleElementId).toBe('');
     expect(useCanvasStore.getState().editingElementId).toBe('');
   });
-
-  test("keeps the canvas host's percentage when leaving edit mode", () => {
-    useCanvasStore.getState().setCanvasPercentage(100);
-    useStageStore.getState().setMode('edit');
-
-    useStageStore.getState().setMode('playback');
-
-    expect(useCanvasStore.getState().canvasPercentage).toBe(100);
-    useCanvasStore.getState().setCanvasPercentage(90);
-  });
 });
 
 describe('isCurrentSceneEditable', () => {

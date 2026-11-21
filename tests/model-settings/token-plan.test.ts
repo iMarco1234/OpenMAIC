@@ -563,7 +563,7 @@ describe('token plan web fetch', () => {
 
 describe('DeepSeek token plan', () => {
   it.each(['keep', 'overwrite'] as const)(
-    'lights chat, speech, OCR, search and fetch with one key in %s mode, and disconnect restores defaults',
+    'lights chat, search and fetch with one key in %s mode, and disconnect restores defaults',
     async (mode) => {
       const view = viewOf(null);
       const preset = view.presets.find((entry) => entry.id === 'deepseek-token-plan')!;
@@ -573,13 +573,10 @@ describe('DeepSeek token plan', () => {
       expect(result).toMatchObject({
         status: 'done',
         providerId: 'deepseek-token-plan',
-        assigned: ['llm', 'tts', 'asr', 'webFetch', 'webSearch', 'document'],
+        assigned: ['llm', 'webFetch', 'webSearch'],
       });
       expect(server.config()?.slots).toEqual({
         llm: 'deepseek-token-plan:deepseek-flash',
-        tts: 'deepseek-token-plan',
-        asr: 'deepseek-token-plan',
-        document: 'deepseek-token-plan',
         webSearch: 'deepseek-token-plan',
         webFetch: 'deepseek-token-plan',
       });
@@ -593,21 +590,6 @@ describe('DeepSeek token plan', () => {
           baseUrl: 'https://api.deepseek.com/v1',
         });
       }
-      // The speech and OCR tools have no model: the provider alone serves them.
-      for (const [slot, registryId] of [
-        ['tts', 'deepseek-tts'],
-        ['asr', 'deepseek-asr'],
-        ['document', 'deepseek-ocr'],
-      ] as const) {
-        const resolved = resolveSlot(slot, layers);
-        expect(resolved, slot).toMatchObject({
-          status: 'assigned',
-          registryId,
-          apiKey: 'sk-ds-plan',
-          baseUrl: 'https://api.deepseek.com/v1',
-        });
-        expect(resolved, slot).not.toHaveProperty('customBaseUrl');
-      }
       await server.apply({ kind: 'remove-provider', id: 'deepseek-token-plan' });
       expect(server.config()?.slots ?? {}).toEqual({});
       expect(
@@ -616,7 +598,7 @@ describe('DeepSeek token plan', () => {
     },
   );
 
-  it('leaves image, video and a personal DeepSeek provider untouched', async () => {
+  it('leaves image, video and TTS and a personal DeepSeek provider untouched', async () => {
     const initial = await configure(
       { kind: 'provider', id: 'deepseek', preset: 'deepseek', apiKey: 'sk-personal-0001' },
       {
@@ -628,11 +610,7 @@ describe('DeepSeek token plan', () => {
     // A personal DeepSeek key is not the plan: the plan is not connected yet.
     const preset = view.presets.find((entry) => entry.id === 'deepseek-token-plan')!;
     expect(view.providers.some((provider) => provider.preset === preset.id)).toBe(false);
-    // TTS turned off is a choice of the workspace: the plan's speech replaces it.
-    expect(connectConflicts(view, preset).map((conflict) => conflict.slot.slot)).toEqual([
-      'llm',
-      'tts',
-    ]);
+    expect(connectConflicts(view, preset).map((conflict) => conflict.slot.slot)).toEqual(['llm']);
 
     const server = serverApply(initial);
     const result = await connectTokenPlan(server.apply, view, preset, 'sk-ds-plan', 'overwrite');
@@ -641,18 +619,14 @@ describe('DeepSeek token plan', () => {
       llm: 'deepseek-token-plan:deepseek-flash',
       image: null,
       video: null,
-      tts: 'deepseek-token-plan',
-      asr: 'deepseek-token-plan',
-      document: 'deepseek-token-plan',
+      tts: null,
       webSearch: 'deepseek-token-plan',
       webFetch: 'deepseek-token-plan',
     });
 
     await server.apply({ kind: 'remove-provider', id: 'deepseek-token-plan' });
     expect(server.config()?.providers?.deepseek).toEqual(initial.providers?.deepseek);
-    // The plan replaced the turned-off TTS slot; disconnecting drops its
-    // assignment, so the slot follows the server again.
-    expect(server.config()?.slots).toEqual({ image: null, video: null });
+    expect(server.config()?.slots).toEqual({ image: null, video: null, tts: null });
   });
 
   it('yields the slots a higher-priority connected plan recommends', async () => {
@@ -662,12 +636,7 @@ describe('DeepSeek token plan', () => {
     expect([...slotsHeldByHigherPlans(view, 'deepseek-token-plan')]).toEqual(
       expect.arrayContaining(['llm', 'webSearch', 'webFetch']),
     );
-    // Kimi does not cover speech or documents: DeepSeek still fills those.
-    expect(recommendationIn(view, 'deepseek-token-plan')).toEqual({
-      tts: 'deepseek-token-plan',
-      asr: 'deepseek-token-plan',
-      document: 'deepseek-token-plan',
-    });
+    expect(recommendationIn(view, 'deepseek-token-plan')).toEqual({});
     expect(slotsHeldByHigherPlans(view, 'kimi-coding-plan').size).toBe(0);
   });
 });

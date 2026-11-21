@@ -145,7 +145,7 @@ describe('a mixed deployment (llm locked, user keys allowed)', () => {
   it('hides Token Plan when no plan can fill an unlocked slot', () => {
     const view = viewFor({
       ...config,
-      lock: ['llm', 'tts', 'asr', 'image', 'video', 'webSearch', 'webFetch', 'document'],
+      lock: ['llm', 'tts', 'image', 'video', 'webSearch', 'webFetch'],
     });
     for (const preset of view.presets.filter((entry) => entry.kind === 'token-plan')) {
       expect(tokenPlanCanChange(view, preset)).toBe(false);

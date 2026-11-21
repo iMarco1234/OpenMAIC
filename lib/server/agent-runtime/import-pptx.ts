@@ -11,6 +11,7 @@
  * from extracted text.
  */
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
@@ -81,8 +82,7 @@ export interface ParsePptxOptions {
   signal?: AbortSignal;
   /** Parse deadline; tests may inject a shorter value. */
   timeoutMs?: number;
-  /** Test seam: hand back a worker instead of spawning the bundled one. */
-  spawnWorker?: (workerData: { buffer: ArrayBuffer }) => ParsePptxWorker;
+  Worker?: new (filename: string | URL, options?: { workerData?: unknown }) => ParsePptxWorker;
 }
 
 export interface ImportPptxToolDeps extends CourseToolDeps {
@@ -233,20 +233,9 @@ export function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-/**
- * Spawn either the injected worker (tests) or the bundled one, in one place and with the
- * path literal inline. Turbopack rewrites that exact shape into the worker chunk carrying
- * `linkedom` and `@openmaic/importer`, which is why the image needs nothing beside it --
- * `document-image-parser.ts` relies on the same rewrite. A path computed first and passed
- * in is invisible to the bundler and the deployment spawns the raw `.mjs`, which is the
- * bug this replaces; `pptx-worker-spawn.test.ts` guards the shape.
- */
-function spawnPptxWorker(buffer: ArrayBuffer, options: ParsePptxOptions): ParsePptxWorker {
-  const workerData = { buffer };
-  if (options.spawnWorker) return options.spawnWorker(workerData);
-  return new Worker(join(process.cwd(), 'lib/server/agent-runtime/import-pptx-worker.mjs'), {
-    workerData,
-  });
+function importerWorkerPath(): string | null {
+  const path = join(process.cwd(), 'lib/server/agent-runtime/import-pptx-worker.mjs');
+  return existsSync(path) ? path : null;
 }
 
 async function rewriteDataUrls(value: unknown, upload: OssUpload): Promise<unknown> {
@@ -289,12 +278,17 @@ export async function parsePptxIsolated(
   if (signal?.aborted) {
     throw new Error('aborted');
   }
+  const workerFile = importerWorkerPath();
+  if (!workerFile) {
+    throw new Error('PPTX import worker is missing from the deployment.');
+  }
   const copy = toArrayBuffer(new Uint8Array(buffer));
+  const WorkerImpl = options.Worker ?? Worker;
   const timeoutMs = options.timeoutMs ?? PARSE_PPTX_TIMEOUT_MS;
   const slides = await new Promise<Slide[]>((resolve, reject) => {
     let worker: ParsePptxWorker;
     try {
-      worker = spawnPptxWorker(copy, options);
+      worker = new WorkerImpl(workerFile, { workerData: { buffer: copy } });
     } catch (error) {
       reject(asError(error));
       return;

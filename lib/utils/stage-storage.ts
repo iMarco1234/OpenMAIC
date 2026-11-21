@@ -11,7 +11,6 @@ import { db } from '@/lib/device-storage/database';
 import type { FolderRecord } from '@/lib/types/folder';
 import { FolderNameError } from './folder-name-validation';
 export { FolderNameError } from './folder-name-validation';
-import type { CourseThumbnail } from './course-cover';
 import {
   ChatStorageLockUnavailableError,
   saveChatSessions,
@@ -27,7 +26,6 @@ import {
   loadCurrentScene,
   mutateDocument,
   saveCurrentScene,
-  type AppDocument,
   type AppDocumentOutline,
 } from '@/lib/document-store';
 import { clearAllForScene } from '@/lib/quiz/persistence';
@@ -702,22 +700,6 @@ export function resetUnloadWriteStateForTests(): void {
  */
 export async function loadStageData(stageId: string): Promise<StageStoreData | null> {
   try {
-    // Chat runtime data lives in a separate IndexedDB database. Keep the
-    // document available when that independent store is temporarily
-    // unavailable; a later chat load/save can recover without treating the
-    // already-loaded stage as missing. Read alongside the document, not after
-    // it: the chat read is several round trips of its own, and nothing about it
-    // depends on the document.
-    let chatSnapshot: ChatStorageSnapshot = { sessions: [], restoreMarker: undefined };
-    const chatsLoad = loadChatSessions(stageId, {
-      onSnapshot: (snapshot) => {
-        chatSnapshot = snapshot;
-      },
-    }).catch((error: unknown): ChatSession[] => {
-      log.warn(`Failed to load chat sessions for stage ${stageId}:`, error);
-      return [];
-    });
-
     const access = await accessDocument(stageId);
     const document = access.document;
     if (!document) {
@@ -726,7 +708,22 @@ export async function loadStageData(stageId: string): Promise<StageStoreData | n
     }
     if (!access.readOnlyLegacy) storedDocuments.add(stageId);
     const currentScene = await loadCurrentScene(stageId);
-    const chats = await chatsLoad;
+
+    // Chat runtime data lives in a separate IndexedDB database. Keep the
+    // document available when that independent store is temporarily
+    // unavailable; a later chat load/save can recover without treating the
+    // already-loaded stage as missing.
+    let chats: ChatSession[] = [];
+    let chatSnapshot: ChatStorageSnapshot = { sessions: [], restoreMarker: undefined };
+    try {
+      chats = await loadChatSessions(stageId, {
+        onSnapshot: (snapshot) => {
+          chatSnapshot = snapshot;
+        },
+      });
+    } catch (error) {
+      log.warn(`Failed to load chat sessions for stage ${stageId}:`, error);
+    }
 
     log.info(`Loaded stage: ${stageId}, scenes: ${document.scenes.length}, chats: ${chats.length}`);
 
@@ -1140,18 +1137,6 @@ export async function loadFirstSlideThumbnail(
 ): Promise<{ slide: ThumbnailSlide | null; complete: boolean }> {
   const document = (await accessDocument(stageId)).document;
   signal?.throwIfAborted();
-  return slideCoverFromDocument(stageId, document, signal);
-}
-
-/**
- * {@link loadFirstSlideThumbnail}'s slide pipeline over an already-loaded
- * document, so {@link loadCourseCover} reads a course only once.
- */
-async function slideCoverFromDocument(
-  stageId: string,
-  document: AppDocument | null,
-  signal?: AbortSignal,
-): Promise<{ slide: ThumbnailSlide | null; complete: boolean }> {
   const firstSlide = document?.scenes.find((s) => s.content?.type === 'slide');
   if (!firstSlide || firstSlide.content.type !== 'slide') return { slide: null, complete: true };
   const slide = structuredClone(firstSlide.content.canvas);
@@ -1318,32 +1303,6 @@ async function slideCoverFromDocument(
   }
 
   return { slide, complete };
-}
-
-/**
- * A course's cover: its first slide ({@link loadFirstSlideThumbnail}), or —
- * only when the course has no slide at all — its first interactive scene,
- * which the surfaces render live in a sandboxed thumbnail iframe. A course
- * with neither has no cover (`null`).
- *
- * Interactive covers read only the already-loaded document, so they are
- * always complete.
- */
-export async function loadCourseCover(
-  stageId: string,
-  signal?: AbortSignal,
-): Promise<{ cover: CourseThumbnail | null; complete: boolean }> {
-  const document = (await accessDocument(stageId)).document;
-  signal?.throwIfAborted();
-  const slideCover = await slideCoverFromDocument(stageId, document, signal);
-  if (slideCover.slide) {
-    return { cover: { kind: 'slide', slide: slideCover.slide }, complete: slideCover.complete };
-  }
-  const interactive = document?.scenes.find((scene) => scene.content?.type === 'interactive');
-  return {
-    cover: interactive ? { kind: 'interactive', scene: interactive } : null,
-    complete: true,
-  };
 }
 
 /**

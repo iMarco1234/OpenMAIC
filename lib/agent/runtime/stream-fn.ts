@@ -37,7 +37,6 @@ import {
   type ToolSet,
 } from 'ai';
 import { streamLLM } from '@/lib/ai/llm';
-import { mapStreamPart, readStreamDelta } from '@/lib/ai/stream-parts';
 import { preservesReasoningForModel } from '@/lib/ai/providers';
 import { normalizeUsage } from '@/lib/usage/normalize';
 import type { ThinkingConfig } from '@/lib/types/provider';
@@ -47,8 +46,6 @@ import {
   type ToolCallProviderMetadata,
 } from './provider-metadata';
 import { replayToolCallArguments, toolCallArguments } from './tool-call-arguments';
-import { requestStateTail } from './request-state-tail';
-import { hostStateTailMessage } from '@/lib/ai/request-state-tail';
 
 /**
  * Local re-implementation of pi-ai's `AssistantMessageEventStream` queue. pi
@@ -148,8 +145,6 @@ export interface CallLlmStreamFnOptions {
   languageModel: LanguageModel;
   /** Only explicitly vision-capable models receive tool images; unknown defaults to omission. */
   supportsToolImages?: boolean;
-  /** Opt-in user image transport; existing authoring callers remain text-only. */
-  includeUserImages?: boolean;
   maxOutputTokens?: number;
   /**
    * When true, never send a max output tokens cap on the wire, even when pi
@@ -204,9 +199,10 @@ export function createPartMapper(
   };
 
   const handle = (part: Record<string, unknown>): void => {
-    const mapped = mapStreamPart(part);
-    if (mapped?.type === 'text-delta' || mapped?.type === 'text') {
-      const { delta } = mapped;
+    const type = part.type as string;
+    if (type === 'text-delta' || type === 'text') {
+      const delta = (part.text ?? part.delta ?? part.textDelta ?? '') as string;
+      if (!delta) return;
       if (active?.kind !== 'text') {
         closeActive();
         const index = partial.content.length;
@@ -217,7 +213,7 @@ export function createPartMapper(
       active.buf += delta;
       (partial.content[active.index] as TextContent).text = active.buf;
       push({ type: 'text_delta', contentIndex: active.index, delta, partial });
-    } else if (part.type === 'reasoning-delta' || part.type === 'reasoning') {
+    } else if (type === 'reasoning-delta' || type === 'reasoning') {
       const delta = (part.text ?? part.delta ?? '') as string;
       if (!delta) return;
       if (active?.kind !== 'thinking') {
@@ -230,17 +226,17 @@ export function createPartMapper(
       active.buf += delta;
       (partial.content[active.index] as ThinkingContent).thinking = active.buf;
       push({ type: 'thinking_delta', contentIndex: active.index, delta, partial });
-    } else if (part.type === 'reasoning-end') {
+    } else if (type === 'reasoning-end') {
       if (active?.kind === 'thinking') closeActive();
-    } else if (mapped?.type === 'tool-call') {
+    } else if (type === 'tool-call') {
       closeActive();
       const idx = partial.content.length;
       const toolCall: ToolCall = {
         type: 'toolCall',
-        id: mapped.toolCallId,
-        name: mapped.toolName,
+        id: (part.toolCallId ?? part.id) as string,
+        name: (part.toolName ?? part.name) as string,
         // Malformed JSON arrives as a raw string; never store it (see helper).
-        arguments: toolCallArguments(mapped.input ?? part.args),
+        arguments: toolCallArguments(part.input ?? part.args),
       };
       // Capture provider-specific metadata (e.g. Gemini thought_signature) via
       // the typed seam so it can be re-emitted on the next turn.
@@ -250,8 +246,8 @@ export function createPartMapper(
       partial.content.push(toolCall);
       push({ type: 'toolcall_start', contentIndex: idx, partial });
       push({ type: 'toolcall_end', contentIndex: idx, toolCall, partial });
-    } else if (mapped?.type === 'error') {
-      throw mapped.error ?? new Error('LLM stream error');
+    } else if (type === 'error') {
+      throw (part.error as Error) ?? new Error('LLM stream error');
     }
     // ignore other v6 parts (start/finish-step/source/...)
   };
@@ -446,14 +442,10 @@ async function pump(
       {
         model: opts.languageModel,
         system: context.systemPrompt,
-        messages: [
-          ...toModelMessages(context.messages, {
-            includeReasoning: preservesReasoningForModel(opts.languageModel),
-            includeToolImages: opts.supportsToolImages,
-            includeUserImages: opts.includeUserImages,
-          }),
-          ...(requestStateTail(context) ? [hostStateTailMessage(requestStateTail(context))] : []),
-        ],
+        messages: toModelMessages(context.messages, {
+          includeReasoning: preservesReasoningForModel(opts.languageModel),
+          includeToolImages: opts.supportsToolImages,
+        }),
         tools: toAiTools(context.tools ?? []),
         toolChoice: 'auto',
         // pi's loop owns multi-step; one LLM turn per streamFn call.
@@ -468,12 +460,13 @@ async function pump(
     for await (const part of result.fullStream as AsyncIterable<Record<string, unknown>>) {
       if (settled) break;
       armIdleTimer();
-      const delta = readStreamDelta(part);
+      const delta = part.text ?? part.delta ?? part.textDelta;
       const feedback =
         (['text-delta', 'text', 'reasoning-delta', 'reasoning', 'tool-input-delta'].includes(
           String(part.type),
         ) &&
-          !!delta) ||
+          typeof delta === 'string' &&
+          delta.length > 0) ||
         part.type === 'tool-call' ||
         part.type === 'finish';
       if (feedback) opts.onProgress?.();
@@ -539,11 +532,7 @@ function combineAbortSignals(signals: AbortSignal[]): {
 /** pi Message[] -> AI SDK ModelMessage[]. */
 export function toModelMessages(
   messages: PiMessage[],
-  options: {
-    includeReasoning?: boolean;
-    includeToolImages?: boolean;
-    includeUserImages?: boolean;
-  } = {},
+  options: { includeReasoning?: boolean; includeToolImages?: boolean } = {},
 ): ModelMessage[] {
   const out: ModelMessage[] = [];
   let pendingImages: Array<
@@ -560,17 +549,6 @@ export function toModelMessages(
     // This is a transport-only view; do not change the durable Pi history.
     if (m.role !== 'toolResult') flushImages();
     if (m.role === 'user') {
-      if (options.includeUserImages === true && Array.isArray(m.content)) {
-        out.push({
-          role: 'user',
-          content: m.content.map((part) =>
-            part.type === 'text'
-              ? { type: 'text' as const, text: part.text }
-              : { type: 'image' as const, image: part.data, mediaType: part.mimeType },
-          ),
-        });
-        continue;
-      }
       const content =
         typeof m.content === 'string'
           ? m.content
